@@ -37,12 +37,6 @@ people_counter<- people_counter%>%
 ```
 
 ```{r}
-
-
-# Let's assume the data is already loaded as people_counter
-# If not, you would load it with something like:
-# people_counter <- read.csv("path_to_file.csv")
-
 # Basic data exploration
 head(people_counter)
 summary(people_counter)
