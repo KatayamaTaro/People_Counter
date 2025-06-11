@@ -241,6 +241,10 @@ monthly_summary <- Counter_summary_by_date %>%
     .groups = 'drop'  # Optional: to drop the grouping structure after summarising
   )
 
+write_csv(max_date, file = "Data/Processed/Max_Daily.csv")
+write_csv(weekly_summary, file = "Data/Processed/Max_Weekly.csv")
+write_csv(monthly_summary, file = "Data/Processed/Max_Monthly.csv")
+
 
 cat("\nProcessing complete! Files ready for ArcGIS Online upload.\n")
 cat("Data for", length(unique(processed_data$CounterID)), "sites processed successfully.\n")
