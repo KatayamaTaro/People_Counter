@@ -1,0 +1,97 @@
+Hour,CounterID,AvgCount,AvgIn,AvgOut
+0,Bayside Trail,NA,NA,NA
+0,Lighthouse,NA,NA,NA
+0,Tidepool Lot 1,0,0,0
+0,Tidepool Lot 2,NA,NA,NA
+1,Bayside Trail,NA,NA,NA
+1,Lighthouse,NA,NA,NA
+1,Tidepool Lot 1,0,0,0
+1,Tidepool Lot 2,NA,NA,NA
+2,Bayside Trail,NA,NA,NA
+2,Lighthouse,NA,NA,NA
+2,Tidepool Lot 1,0,0,0
+2,Tidepool Lot 2,NA,NA,NA
+3,Bayside Trail,NA,NA,NA
+3,Lighthouse,NA,NA,NA
+3,Tidepool Lot 1,0.029411764705882353,0,0.029411764705882353
+3,Tidepool Lot 2,NA,NA,NA
+4,Bayside Trail,NA,NA,NA
+4,Lighthouse,NA,NA,NA
+4,Tidepool Lot 1,0.029411764705882353,0.029411764705882353,0
+4,Tidepool Lot 2,NA,NA,NA
+5,Bayside Trail,NA,NA,NA
+5,Lighthouse,NA,NA,NA
+5,Tidepool Lot 1,0.029411764705882353,0.029411764705882353,0
+5,Tidepool Lot 2,NA,NA,NA
+6,Bayside Trail,NA,NA,NA
+6,Lighthouse,NA,NA,NA
+6,Tidepool Lot 1,0,0,0
+6,Tidepool Lot 2,NA,NA,NA
+7,Bayside Trail,NA,NA,NA
+7,Lighthouse,NA,NA,NA
+7,Tidepool Lot 1,0.23529411764705882,0.14705882352941177,0.08823529411764706
+7,Tidepool Lot 2,NA,NA,NA
+8,Bayside Trail,NA,NA,NA
+8,Lighthouse,NA,NA,NA
+8,Tidepool Lot 1,0.7647058823529411,0.47058823529411764,0.29411764705882354
+8,Tidepool Lot 2,NA,NA,NA
+9,Bayside Trail,NA,NA,NA
+9,Lighthouse,NA,NA,NA
+9,Tidepool Lot 1,45.11764705882353,34.11764705882353,11
+9,Tidepool Lot 2,NA,NA,NA
+10,Bayside Trail,NA,NA,NA
+10,Lighthouse,NA,NA,NA
+10,Tidepool Lot 1,NA,NA,NA
+10,Tidepool Lot 2,NA,NA,NA
+11,Bayside Trail,NA,NA,NA
+11,Lighthouse,NA,NA,NA
+11,Tidepool Lot 1,147.76470588235293,88.41176470588235,59.35294117647059
+11,Tidepool Lot 2,NA,NA,NA
+12,Bayside Trail,NA,NA,NA
+12,Lighthouse,NA,NA,NA
+12,Tidepool Lot 1,149.8235294117647,81.91176470588235,67.91176470588235
+12,Tidepool Lot 2,NA,NA,NA
+13,Bayside Trail,NA,NA,NA
+13,Lighthouse,NA,NA,NA
+13,Tidepool Lot 1,159.76470588235293,86.70588235294117,73.05882352941177
+13,Tidepool Lot 2,NA,NA,NA
+14,Bayside Trail,NA,NA,NA
+14,Lighthouse,NA,NA,NA
+14,Tidepool Lot 1,156.11764705882354,84.20588235294117,71.91176470588235
+14,Tidepool Lot 2,NA,NA,NA
+15,Bayside Trail,NA,NA,NA
+15,Lighthouse,NA,NA,NA
+15,Tidepool Lot 1,163.7941176470588,91.26470588235294,72.52941176470588
+15,Tidepool Lot 2,NA,NA,NA
+16,Bayside Trail,NA,NA,NA
+16,Lighthouse,NA,NA,NA
+16,Tidepool Lot 1,100.94117647058823,44.73529411764706,56.205882352941174
+16,Tidepool Lot 2,NA,NA,NA
+17,Bayside Trail,NA,NA,NA
+17,Lighthouse,NA,NA,NA
+17,Tidepool Lot 1,9.735294117647058,9.617647058823529,0.11764705882352941
+17,Tidepool Lot 2,NA,NA,NA
+18,Bayside Trail,NA,NA,NA
+18,Lighthouse,NA,NA,NA
+18,Tidepool Lot 1,6.0588235294117645,6.0588235294117645,0
+18,Tidepool Lot 2,NA,NA,NA
+19,Bayside Trail,NA,NA,NA
+19,Lighthouse,NA,NA,NA
+19,Tidepool Lot 1,0.5294117647058824,0.5,0.029411764705882353
+19,Tidepool Lot 2,NA,NA,NA
+20,Bayside Trail,NA,NA,NA
+20,Lighthouse,NA,NA,NA
+20,Tidepool Lot 1,0.08823529411764706,0,0.08823529411764706
+20,Tidepool Lot 2,NA,NA,NA
+21,Bayside Trail,NA,NA,NA
+21,Lighthouse,NA,NA,NA
+21,Tidepool Lot 1,0,0,0
+21,Tidepool Lot 2,NA,NA,NA
+22,Bayside Trail,NA,NA,NA
+22,Lighthouse,NA,NA,NA
+22,Tidepool Lot 1,0,0,0
+22,Tidepool Lot 2,NA,NA,NA
+23,Bayside Trail,NA,NA,NA
+23,Lighthouse,NA,NA,NA
+23,Tidepool Lot 1,0,0,0
+23,Tidepool Lot 2,NA,NA,NA
