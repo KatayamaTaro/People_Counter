@@ -241,6 +241,10 @@ monthly_summary <- Counter_summary_by_date %>%
     .groups = 'drop'  # Optional: to drop the grouping structure after summarising
   )
 
+ecocounter_no_NA<-processed_data%>%
+  na.exclude()
+
+write_csv(ecocounter_no_NA, file = "Data/Processed/Eco_Counter_no_NA.csv")
 write_csv(max_date, file = "Data/Processed/Max_Daily.csv")
 write_csv(weekly_summary, file = "Data/Processed/Max_Weekly.csv")
 write_csv(monthly_summary, file = "Data/Processed/Max_Monthly.csv")
