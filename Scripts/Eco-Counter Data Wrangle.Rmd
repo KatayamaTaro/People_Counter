@@ -1,8 +1,11 @@
 ---
 title: "Eco-Counter Data Wrangle"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
 date: "2025-06-11"
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -16,7 +19,10 @@ library(readr)
 ```{r}
 # Set file path at the top
 
-file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/All_202505_06.csv"
+file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/All_20250507_0615.csv"
+```
+
+```{r}
 
 # Function to process eco-counter data for multiple sites
 process_ecocounter_data <- function(file_path) {
@@ -82,9 +88,15 @@ process_ecocounter_data <- function(file_path) {
            PedestriansIn = `CABR Lot 2 Counter IN`,
            PedestriansOut = `CABR Lot 2 Counter OUT`) %>%
     mutate(CounterID = "Tidepool Lot 2")
+  
+  Oceanside1_data<- clean_data %>%
+    select(DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn = `Oceanside Trail 1 Pedestrian IN`,
+           PedestriansOut = `Oceanside Trail 1 Pedestrian OUT`) %>%
+    mutate(CounterID = "Oceanside Trail 1")
  
   # Combine all sites
-  processed_data <- bind_rows(lighthouse_data, bayside_data, lot1_data, lot2_data) %>%
+  processed_data <- bind_rows(lighthouse_data, bayside_data, lot1_data, lot2_data, Oceanside1_data) %>%
     # Calculate total count - only if both In and Out are not NA
     mutate(
       TotalCount = case_when(
@@ -233,15 +245,15 @@ weekly_summary <- Counter_summary_by_date %>%
 #Monthly trends
 monthly_summary <- Counter_summary_by_date %>%
   mutate(
-    month = floor_date(Date, unit = "month")  # Set week to start on Monday
+    month = floor_date(Date, unit = "month")
   )%>%
   group_by(CounterID, month) %>%
   summarise(
-    MonthlyTotal = sum(sum_by_date),  # Replace 'Value' with your actual value column
-    .groups = 'drop'  # Optional: to drop the grouping structure after summarising
+    MonthlyTotal = sum(sum_by_date),  
+    .groups = 'drop' 
   )
 
-ecocounter_no_NA<-processed_data%>%
+ecocounter_no_NA<-final_data%>%
   na.exclude()
 
 write_csv(ecocounter_no_NA, file = "Data/Processed/Eco_Counter_no_NA.csv")
