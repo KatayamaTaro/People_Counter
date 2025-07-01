@@ -5,8 +5,9 @@ The People Counter project has three major components:
 	The People_Counter.Rproj project opens an R project that helps the user create a processed dataset from the raw dataset imported from eco-viso.
 	The PowerBI.Rmd script allows the user to process raw people counter data and outputs processed files in the Data/Processed folder and the Data/Processed/PowerBI folder
 2) Power BI Dashboard
-	The power BI Dashboard lives in the People_Counter directory. It allows users to see the people counter data and select date range, counter, weekday/weekend
-3) Data folder
+	The power BI Dashboard lives in the People_Counter root folder. It allows users to select date range, counter, weekday/weekend to see usage trends. The counts utilze the 'OUT' count of all the counters. This ensures that counters and not double counting, meaning it does not count the "IN" and the "OUT".
+	The dashboard has three pages. The first 'Macro Trends' page allows user to see ALL the collected data from all counters. It also tallies that total trail usage counts summing up all the count data. 
+4) Data folder
 	The data folder contains a Processed folder, Raw folder. The raw data downloaded from eco-visio should go in the Raw folder
 
 Process for Updating Dashboard!
