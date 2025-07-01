@@ -6,9 +6,10 @@ The People_Counter.Rproj file opens an R project that helps the user create a se
 
 ### 2) Power BI Dashboard
 The power BI Dashboard lives in the People_Counter root folder. It allows users to select date range, counter, weekday/weekend to see usage trends. The counts utilze the 'OUT' count of all the counters. This ensures that counters are not double counting, meaning it does not count the "IN" and the "OUT".The dashboard has three pages.
-	1) The first 'Macro Trends' page allows user to see ALL the collected data from all counters. It also tallies the total trail usage counts since the counters started recording.
-	2) The second page named 'Weekly Trends' shows the trail usage broken down by weekday. It is mainly intended for the user to see how trail usage changes depending on day of week. You can sort by counter, date range, weekend/weekday.
-	3) The third page named 'Annual Projections' shows the annual trail use prediction based on available data and extrapolation. This does not account for seasonality. It is a simple average daily usage calculation multiplied by 365.
+
+1) The first 'Macro Trends' page allows user to see ALL the collected data from all counters. It also tallies the total trail usage counts since the counters started recording.
+2) The second page named 'Weekly Trends' shows the trail usage broken down by weekday. It is mainly intended for the user to see how trail usage changes depending on day of week. You can sort by counter, date range, weekend/weekday.
+3) The third page named 'Annual Projections' shows the annual trail use prediction based on available data and extrapolation. This does not account for seasonality. It is a simple average daily usage calculation multiplied by 365.
 
 ### 3) Data folder
 The data folder contains a Processed folder, Raw folder. The raw data downloaded from eco-visio should go in the Raw folder
