@@ -23,7 +23,7 @@ The data folder contains a Processed folder, Raw folder. The raw data downloaded
 6) Click on advanced setting, and toggle on 'In' and 'Out' and toggle off 'Total'
 7) Go to table view and download the data to \People_Counter\Data\Raw
 
-## Process for Updating Dashboard!
+## Process for Updating Dashboard
 1) Save new raw data file in the Data/Raw folder.
 2) Update the file_path in the PowerBI.Rmd R script
 3) Run PowerBI.Rmd R script in RStudio
