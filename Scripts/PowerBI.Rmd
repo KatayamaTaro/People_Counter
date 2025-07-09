@@ -12,7 +12,7 @@ library(lubridate)
 library(readr)
 
 # Set file path for most recent data!
-file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/All_20250507_0630.csv"
+file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/All_20250507_0708.csv"
 
 # Function to process eco-counter data for multiple sites
 process_ecocounter_data <- function(file_path) {
