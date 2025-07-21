@@ -356,3 +356,237 @@ cat("• Power BI will auto-refresh when you re-run this script\n")
 cat("• Check PowerBI_Refresh_Log.csv for update history\n")
 ```
 
+```{r}
+# Load required libraries
+library(dplyr)
+library(lubridate)
+library(readr)
+
+# Set file path for most recent data!
+file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/All_20250507_0708.csv"
+
+# Function to process eco-counter data for multiple sites
+process_ecocounter_data <- function(file_path) {
+  # Read CSV file, skipping first 2 rows
+  raw_data <- read_csv(file_path, skip = 2, na = c(""))
+ 
+  # Display original column names for verification
+  cat("Original column names:\n")
+  print(names(raw_data))
+ 
+  # First, clean and prepare the base data
+  clean_data <- raw_data %>%
+    filter(!is.na(Time)) %>%
+    mutate(
+      DateTime = mdy_hm(Time),
+      DateTime = case_when(
+        is.na(DateTime) ~ mdy_hms(paste0(Time, ":00")),
+        TRUE ~ DateTime
+      )
+    ) %>%
+    filter(!is.na(DateTime)) %>%
+    mutate(
+      Date = as.Date(DateTime),
+      Hour = hour(DateTime),
+      Year = year(DateTime),
+      Month = month(DateTime),
+      Day = day(DateTime),
+      Weekday = wday(DateTime, label = TRUE)
+    )
+ 
+  # Create separate dataframes for each site
+  lighthouse_data <- clean_data %>%
+    select(DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn = `Lighthouse Pedestrian towards lighthouse`,
+           PedestriansOut = `Lighthouse Pedestrian out of lighthouse`) %>%
+    mutate(CounterID = "Lighthouse")
+ 
+  bayside_data <- clean_data %>%
+    select(DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn = `Bayside Pedestrian In`,
+           PedestriansOut = `Bayside Pedestrian out`) %>%
+    mutate(CounterID = "Bayside Trail")
+ 
+  lot1_data <- clean_data %>%
+    select(DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn = `CABR Lot 1 Counter IN`,
+           PedestriansOut = `CABR Lot 1 Counter OUT`) %>%
+    mutate(CounterID = "Tidepool Lot 1")
+ 
+  lot2_data <- clean_data %>%
+    select(DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn = `CABR Lot 2 Counter IN`,
+           PedestriansOut = `CABR Lot 2 Counter OUT`) %>%
+    mutate(CounterID = "Tidepool Lot 2")
+ 
+  Oceanside1_data <- clean_data %>%
+    select(DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn = `Oceanside Trail 1 Pedestrian IN`,
+           PedestriansOut = `Oceanside Trail 1 Pedestrian OUT`) %>%
+    mutate(CounterID = "Oceanside Trail 1")
+ 
+  # Combine all sites
+  processed_data <- bind_rows(lighthouse_data, bayside_data, lot1_data,
+                              lot2_data, Oceanside1_data) %>%
+    mutate(
+      # Use only OUT count to avoid double counting (represents unique visitors leaving)
+      # If OUT is missing, use IN as backup
+      TotalCount = case_when(
+        is.na(PedestriansOut) & is.na(PedestriansIn) ~ NA_real_,
+        is.na(PedestriansOut) ~ PedestriansIn,
+        TRUE ~ PedestriansOut
+      ),
+      # Create a combined count for reference (always include this column)
+      CombinedCount = case_when(
+        is.na(PedestriansIn) & is.na(PedestriansOut) ~ NA_real_,
+        is.na(PedestriansIn) ~ PedestriansOut,
+        is.na(PedestriansOut) ~ PedestriansIn,
+        TRUE ~ PedestriansIn + PedestriansOut
+      )
+    ) %>%
+    select(
+      CounterID,
+      DateTime,
+      Date,
+      Hour,
+      Year,
+      Month,
+      Day,
+      Weekday,
+      PedestriansIn,
+      PedestriansOut,
+      TotalCount,
+      CombinedCount
+    ) %>%
+    arrange(CounterID, DateTime)
+ 
+  return(processed_data)
+}
+
+# Function to create Power BI main dataset
+create_powerbi_main <- function(data) {
+  
+  # Main dataset - cleaned and formatted for Power BI
+  powerbi_main <- data %>%
+    filter(!is.na(TotalCount)) %>%
+    mutate(
+      # Create Power BI friendly date formats
+      DateKey = as.numeric(format(Date, "%Y%m%d")),
+      MonthYear = format(Date, "%Y-%m"),
+      MonthName = month(Date, label = TRUE, abbr = FALSE),
+      DayOfWeek = wday(Date, label = TRUE, abbr = FALSE),
+      WeekdayNumber = wday(Date, week_start = 1), # Monday = 1, Sunday = 7
+      Quarter = paste0("Q", quarter(Date)),
+      WeekNumber = week(Date),
+      IsWeekend = ifelse(wday(Date) %in% c(1, 7), "Weekend", "Weekday"),
+      TimeOfDay = case_when(
+        Hour >= 5 & Hour < 12 ~ "Morning",
+        Hour >= 12 & Hour < 17 ~ "Afternoon",
+        Hour >= 17 & Hour < 21 ~ "Evening",
+        TRUE ~ "Night"
+      ),
+      # Create descriptive trail categories
+      TrailCategory = case_when(
+        grepl("Lighthouse", CounterID) ~ "Lighthouse Area",
+        grepl("Bayside", CounterID) ~ "Bayside Trail",
+        grepl("Tidepool", CounterID) ~ "Tidepool Area",
+        grepl("Oceanside", CounterID) ~ "Oceanside Trail",
+        TRUE ~ "Other"
+      )
+    ) %>%
+    # Ensure no missing values in key fields
+    filter(!is.na(PedestriansIn) | !is.na(PedestriansOut)) %>%
+    # Replace NA with 0 only where needed
+    mutate(
+      PedestriansIn = ifelse(is.na(PedestriansIn), 0, PedestriansIn),
+      PedestriansOut = ifelse(is.na(PedestriansOut), 0, PedestriansOut),
+      # Primary count uses OUT (represents unique visitors)
+      TotalCount = case_when(
+        PedestriansOut > 0 ~ PedestriansOut,
+        PedestriansOut == 0 & PedestriansIn > 0 ~ PedestriansIn,
+        TRUE ~ 0
+      ),
+      # Always include CombinedCount to prevent Power BI refresh issues
+      CombinedCount = PedestriansIn + PedestriansOut
+    ) %>%
+    # Add LastUpdated as final step to ensure it's always present
+    mutate(LastUpdated = format(Sys.time(), "%Y-%m-%d %H:%M:%S"))
+ 
+  return(powerbi_main)
+}
+datasets$main$LastUpdated <- format(timestamp, "%Y-%m-%d %H:%M:%S")
+
+# Function to export Power BI main dataset
+export_powerbi_main <- function(dataset, base_path = "Data/Processed/PowerBI/") {
+  # Create directory if it doesn't exist
+  if (!dir.exists(base_path)) {
+    dir.create(base_path, recursive = TRUE)
+  }
+  
+  # Ensure all required columns are present before export
+  required_columns <- c("CounterID", "DateTime", "Date", "Hour", "Year", "Month", "Day", 
+                       "Weekday", "PedestriansIn", "PedestriansOut", "TotalCount", 
+                       "CombinedCount", "DateKey", "MonthYear", "MonthName", "DayOfWeek", 
+                       "WeekdayNumber", "Quarter", "WeekNumber", "IsWeekend", "TimeOfDay", 
+                       "TrailCategory", "LastUpdated")
+  
+  # Check for missing columns and add them if needed
+  missing_columns <- setdiff(required_columns, names(dataset))
+  if (length(missing_columns) > 0) {
+    cat("Adding missing columns:", paste(missing_columns, collapse = ", "), "\n")
+    for (col in missing_columns) {
+      if (col == "LastUpdated") {
+        dataset[[col]] <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      } else if (col == "CombinedCount") {
+        dataset[[col]] <- ifelse(is.na(dataset$PedestriansIn) & is.na(dataset$PedestriansOut), 
+                                0, 
+                                coalesce(dataset$PedestriansIn, 0) + coalesce(dataset$PedestriansOut, 0))
+      } else {
+        dataset[[col]] <- NA
+      }
+    }
+  }
+  
+  # Export main dataset
+  write_csv(dataset, paste0(base_path, "EcoCounter_PowerBI_Main.csv"))
+  
+  cat("\n=== POWER BI MAIN DATASET EXPORTED ===\n")
+  cat("Last Updated:", format(Sys.time(), "%Y-%m-%d %H:%M:%S"), "\n")
+  cat("Main dataset:", nrow(dataset), "records\n")
+  cat("Date range:", min(dataset$Date), "to", max(dataset$Date), "\n")
+  cat("Trails included:", length(unique(dataset$CounterID)), "\n")
+  cat("Files saved to:", base_path, "\n")
+  cat("NOTE: TotalCount uses OUT count only to avoid double counting visitors\n")
+  cat("NOTE: CombinedCount column always included to prevent Power BI refresh issues\n")
+  
+  # Print dataset preview
+  cat("\n=== SAMPLE OF MAIN DATASET ===\n")
+  sample_data <- dataset %>%
+    select(CounterID, Date, Hour, WeekdayNumber, DayOfWeek, TotalCount, CombinedCount, LastUpdated) %>%
+    head(5)
+  print(sample_data)
+  
+  return(dataset)
+}
+
+# Main execution
+processed_data <- process_ecocounter_data(file_path)
+
+# Create Power BI main dataset
+powerbi_main <- create_powerbi_main(processed_data)
+
+# Export for Power BI
+final_powerbi_data <- export_powerbi_main(powerbi_main)
+
+cat("\nProcessing complete! Main file ready for Power BI auto-refresh.\n")
+cat("Power BI file created: Data/Processed/PowerBI/EcoCounter_PowerBI_Main.csv\n")
+cat("Data for", length(unique(processed_data$CounterID)), "sites processed successfully.\n")
+cat("\n=== IMPORTANT NOTES ===\n")
+cat("• TotalCount uses OUT pedestrian count only (avoids double counting)\n")
+cat("• CombinedCount always included (prevents Power BI refresh issues)\n")
+cat("• WeekdayNumber: Monday=1, Tuesday=2, ..., Sunday=7\n")
+cat("• Power BI will auto-refresh when you re-run this script\n")
+```
+
+
+
