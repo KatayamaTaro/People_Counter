@@ -1,7 +1,7 @@
 # People\_Counter
 
 
-![Cool Person Walking](https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif)
+![girl walking](https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif)
 
 
 ## The People Counter project has three major components:
@@ -9,6 +9,19 @@
 ### 1\) R Script
 
 The People\_Counter.Rproj file opens an R project that helps the user create a series of processed datasets from the raw dataset imported from eco-visio (Eco-visio is the platform that manages people counter data). The newly created processed dataset can then be used for analysis in the PowerBI dashboard. The PowerBIScript.Rmd script allows the user to process raw people counter data (from Data/Raw) and outputs processed files in the Data/Processed/PowerBI folder. Note that processed datasets can also be used for analysis separate from the powerBI dashboard.
+
+# R Script How to:
+
+If you are completely new to R, then good luck :/ 
+Just kidding. However, I am assuming that you have R downloaded on your computer know how to open scripts. Alright, first open the script People_Counter\Scripts\PowerBIScript.Rmd. 
+Next, you will want to update the script with the newest raw data. Update the file path accordingly! 
+
+<img width="1063" height="380" alt="image" src="https://github.com/user-attachments/assets/e8a436fe-452d-4a4d-bdcd-a1354e1c6559" />
+
+Next press run by clicking on the green arrow.
+<img width="1084" height="420" alt="image" src="https://github.com/user-attachments/assets/8e0e0f07-4287-4f3d-bc68-1551388ef41f" />
+
+That's it! The processed dataset should live in Data/Processed/PowerBI folder.
 
 ### 2\) Power BI Dashboard
 
