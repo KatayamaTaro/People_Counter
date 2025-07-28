@@ -32,11 +32,16 @@ That's it! The processed dataset should live in Data/Processed/PowerBI folder.
 
 ### 2\) Power BI Dashboard
 
-The power BI Dashboard lives in the People\_Counter root folder. It allows users to select date range, counter, weekday/weekend to see usage trends. The counts utilze the 'OUT' count of all the counters. This ensures that counters are not double counting, meaning it does not count the "IN" and the "OUT".The dashboard has three pages.
+The power BI Dashboard lives in the People\_Counter root folder. It allows users to select date range, counter, weekday/weekend to see usage trends. The counts utilize the 'IN' count of all the counters. This ensures that counters are not double counting, meaning it does not count the "IN" and the "OUT".The dashboard has three pages.
 
-1. The first 'Macro Trends' page allows user to see ALL the collected data from all counters. It also tallies the total trail usage counts since the counters started recording.
-2. The second page named 'Weekly Trends' shows the trail usage broken down by weekday. It is mainly intended for the user to see how trail usage changes depending on day of week. You can sort by counter, date range, weekend/weekday.
-3. The third page named 'Annual Projections' shows the annual trail use prediction based on available data and extrapolation. This does not account for seasonality. It is a simple average daily usage calculation multiplied by 365.
+1. The first 'Instructions' page gives the user more information about the other pages and gives instructions on how to use the dashboards.
+2. The 'Macro Trends' page allows user to see ALL the collected data from all counters. It also tallies the total trail usage counts since the counters started recording.
+3. The second page named 'Weekly Trends' shows the trail usage broken down by weekday. It is mainly intended for the user to see how trail usage changes depending on day of week. You can sort by counter, date range, weekend/weekday.
+4. The third page named 'Annual Projections' shows the annual trail use prediction based on available data and extrapolation. This does not account for seasonality. It is a simple average daily usage calculation multiplied by 365.
+
+  To updated the dashboard, press the "Refresh" button on the Home tab
+  <img width="1351" height="931" alt="image" src="https://github.com/user-attachments/assets/86c26d82-2dff-437e-b2dd-9d9596034318" />
+
 
 ### 3\) Data folder
 
