@@ -1,6 +1,9 @@
 # People\_Counter
 
-![Cool Person Walking](https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif
+
+![Cool Person Walking](https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif)
+
+
 ## The People Counter project has three major components:
 
 ### 1\) R Script
