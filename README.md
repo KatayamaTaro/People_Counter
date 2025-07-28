@@ -1,7 +1,10 @@
 # People\_Counter
 
 
-![girl walking](https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif)
+
+<div style="text-align: center;">
+  https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif)
+</div>
 
 
 ## The People Counter project has three major components:
