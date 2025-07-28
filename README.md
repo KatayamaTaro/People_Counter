@@ -5,7 +5,7 @@
 <div style="text-align: center;">
   <img src= "https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif"
 
-
+  
 
 ## The People Counter project has three major components:
 
