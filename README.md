@@ -16,6 +16,8 @@ The People\_Counter.Rproj file opens an R project that helps the user create a s
 
 If you are completely new to R, then good luck!  
 
+<img src= "https://github.com/taroNPS/People_Counter/blob/main/Temp/larry.jpg" width="500">
+
 Just kidding. However, I am assuming that you have R downloaded on your computer and know how to open scripts. Alright, first open the script People_Counter\Scripts\PowerBIScript.Rmd. 
 Next, you will want to update the script with the newest raw data. Update the file path accordingly! 
 
