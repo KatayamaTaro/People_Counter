@@ -15,6 +15,7 @@ The People\_Counter.Rproj file opens an R project that helps the user create a s
 ## R Script How to:
 
 If you are completely new to R, then good luck!  
+
 Just kidding. However, I am assuming that you have R downloaded on your computer and know how to open scripts. Alright, first open the script People_Counter\Scripts\PowerBIScript.Rmd. 
 Next, you will want to update the script with the newest raw data. Update the file path accordingly! 
 
@@ -24,6 +25,8 @@ Next press run by clicking on the green arrow.
 <img width="1084" height="420" alt="image" src="https://github.com/user-attachments/assets/8e0e0f07-4287-4f3d-bc68-1551388ef41f" />
 
 That's it! The processed dataset should live in Data/Processed/PowerBI folder.
+
+<img src= "https://github.com/taroNPS/People_Counter/blob/main/Temp/e.gif" width="500">
 
 ### 2\) Power BI Dashboard
 
