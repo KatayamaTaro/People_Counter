@@ -10,7 +10,7 @@
 
 The People\_Counter.Rproj file opens an R project that helps the user create a series of processed datasets from the raw dataset imported from eco-visio (Eco-visio is the platform that manages people counter data). The newly created processed dataset can then be used for analysis in the PowerBI dashboard. The PowerBIScript.Rmd script allows the user to process raw people counter data (from Data/Raw) and outputs processed files in the Data/Processed/PowerBI folder. Note that processed datasets can also be used for analysis separate from the powerBI dashboard.
 
-# R Script How to:
+## R Script How to:
 
 If you are completely new to R, then good luck!  
 Just kidding. However, I am assuming that you have R downloaded on your computer and know how to open scripts. Alright, first open the script People_Counter\Scripts\PowerBIScript.Rmd. 
