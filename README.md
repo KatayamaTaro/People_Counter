@@ -39,9 +39,6 @@ The power BI Dashboard lives in the People\_Counter root folder. It allows users
 3. The second page named 'Weekly Trends' shows the trail usage broken down by weekday. It is mainly intended for the user to see how trail usage changes depending on day of week. You can sort by counter, date range, weekend/weekday.
 4. The third page named 'Annual Projections' shows the annual trail use prediction based on available data and extrapolation. This does not account for seasonality. It is a simple average daily usage calculation multiplied by 365.
 
-  To updated the dashboard, press the "Refresh" button on the Home tab
-  <img width="1351" height="931" alt="image" src="https://github.com/user-attachments/assets/86c26d82-2dff-437e-b2dd-9d9596034318" />
-
 
 ### 3\) Data folder
 
@@ -67,8 +64,10 @@ The data folder contains a Processed folder, Raw folder. The raw data downloaded
 
 1. Save new raw data file in the Data/Raw folder.
 2. Update the file\_path in the PowerBI.Rmd R script
-3. Run PowerBI.Rmd R script in RStudio
+3. Run PowerBIScript.Rmd R script in RStudio
 4. Open your Power BI file
 5. Click Home -> Refresh
 6. Your dashboard automatically updates with new data!
-7. Verify that the "Last Updated" Card shows latest update
+7. Verify that the "Last Updated" Card shows latest update on the Macro Trends page.
+
+  <img width="1351" height="931" alt="image" src="https://github.com/user-attachments/assets/86c26d82-2dff-437e-b2dd-9d9596034318" />
