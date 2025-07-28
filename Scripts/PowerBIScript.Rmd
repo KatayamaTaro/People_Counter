@@ -2,6 +2,7 @@
 title: "PowerBI Script"
 output: html_document
 date: "2025-07-21"
+author: "Taro Katayama"
 ---
 
 ```{r setup, include=FALSE}
