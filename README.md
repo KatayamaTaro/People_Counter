@@ -12,7 +12,7 @@ The People\_Counter.Rproj file opens an R project that helps the user create a s
 
 # R Script How to:
 
-If you are completely new to R, then good luck :/ 
+If you are completely new to R, then good luck!
 Just kidding. However, I am assuming that you have R downloaded on your computer know how to open scripts. Alright, first open the script People_Counter\Scripts\PowerBIScript.Rmd. 
 Next, you will want to update the script with the newest raw data. Update the file path accordingly! 
 
