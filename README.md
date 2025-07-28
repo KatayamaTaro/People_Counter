@@ -21,10 +21,10 @@ If you are completely new to R, then good luck!
 Just kidding. However, I am assuming that you have R downloaded on your computer and know how to open scripts. Alright, first open the script People_Counter\Scripts\PowerBIScript.Rmd. 
 Next, you will want to update the script with the newest raw data. Update the file path accordingly! 
 
-<img width="500" height="200" alt="image" src="https://github.com/user-attachments/assets/e8a436fe-452d-4a4d-bdcd-a1354e1c6559" />
+<img width="900" height="400" alt="image" src="https://github.com/user-attachments/assets/e8a436fe-452d-4a4d-bdcd-a1354e1c6559" />
 
 Next press run by clicking on the green arrow.
-<img width="500" height="200" alt="image" src="https://github.com/user-attachments/assets/8e0e0f07-4287-4f3d-bc68-1551388ef41f" />
+<img width="900" height="500" alt="image" src="https://github.com/user-attachments/assets/8e0e0f07-4287-4f3d-bc68-1551388ef41f" />
 
 That's it! The processed dataset should live in Data/Processed/PowerBI folder.
 
@@ -40,7 +40,7 @@ The power BI Dashboard lives in the People\_Counter root folder. It allows users
 4. The third page named 'Annual Projections' shows the annual trail use prediction based on available data and extrapolation. This does not account for seasonality. It is a simple average daily usage calculation multiplied by 365.
 
   To updated the dashboard, press the "Refresh" button on the Home tab
-  <img width="1351" height="531" alt="image" src="https://github.com/user-attachments/assets/86c26d82-2dff-437e-b2dd-9d9596034318" />
+  <img width="1351" height="931" alt="image" src="https://github.com/user-attachments/assets/86c26d82-2dff-437e-b2dd-9d9596034318" />
 
 
 ### 3\) Data folder
