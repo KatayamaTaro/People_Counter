@@ -6,7 +6,7 @@
 
 ## Overview
 
-The People Counter project at Cabrillo National Monument helps to understand trails and lighthouse usage trends. It processes raw visitor count data and visualizes usage statistics using R and Power BI.
+The People Counter project at Cabrillo National Monument helps to understand trails and lighthouse usage trends. It processes raw visitor count data and visualizes usage statistics using R and Power BI. While this repository is tailored towards people counter data processing and dashboard generation specific to Cabrillo National Monument, it can easily be tailored for other NPS units looking to immplement their own people counter system. For more information or help on this process, contact taro_katayama@nps.gov
 
 ## Table of Contents
 
