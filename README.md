@@ -11,6 +11,7 @@ The People Counter project at Cabrillo National Monument helps to understand tra
 ## Table of Contents
 
 - [Overview](#overview)
+- [File Structure](#File-Structure)
 - [Project Components](#project-components)
 - [Installation](#installation)
 - [Usage Example](#usage-example)
@@ -20,6 +21,24 @@ The People Counter project at Cabrillo National Monument helps to understand tra
 - [License](#license)
 - [Contact](#contact)
 - [Acknowledgments](#acknowledgments)
+
+## File Structure
+```
+People_Counter/
+├── Data/
+│   ├── Processed/
+│   │   └── PowerBI/
+│   └── Raw/
+├── Scripts/
+│   └── PowerBIScript.Rmd
+├── People_Counter.Rproj
+├── PowerBI Dashboard (PowerBI .pbix file)
+├── Temp/
+│   ├── 7-2d-girl-side-walk-animation-gif.gif
+│   ├── larry.jpg
+│   └── e.gif
+├── README.md
+```
 
 ## Project Components
 
