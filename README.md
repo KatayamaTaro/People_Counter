@@ -20,7 +20,6 @@ The People Counter project at Cabrillo National Monument helps to understand tra
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
-- [Acknowledgments](#acknowledgments)
 
 ## File Structure
 ```
