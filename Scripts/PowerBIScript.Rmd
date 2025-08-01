@@ -18,11 +18,11 @@ library(readr)
 ```
 
 ```{r}
-#Set working directory to project root folder in this case it is. 
-setwd("C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/")
+#Get working directory
+getwd()
 
-# Set file path for data input
-file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/All_20250507_0728.csv"
+# Set file path for data input. When updating with new data, just update the All_20250507_XXXX.csv file path
+file_path <- file.path("..", "Data", "Raw", "All_20250507_0728.csv")
 
 # Main function to process eco-counter data from multiple sites
 process_ecocounter_data <- function(file_path) {
