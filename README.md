@@ -70,7 +70,7 @@ The Power BI Dashboard lives in the People_Counter root folder. It allows users 
 
 ### 3) Data folder
 
-The data folder contains a `Processed` folder and a `Raw` folder. The raw data downloaded from eco-visio should go in the Raw folder. The data file naming convention should follow `All_20250507_mmdd.csv` format.
+The data folder contains a `Processed` folder and a `Raw` folder. The raw data downloaded from eco-visio should go in the Raw folder. The data file naming convention should follow `All_20250507_mmdd.csv` format. Data folder is hidden for now. In the future, data will be released publicly on DataStore.
 
 ## Installation
 
