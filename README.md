@@ -89,7 +89,7 @@ The data folder contains a `Processed` folder and a `Raw` folder. The raw data d
 
 ## Usage Example
 
-1. Place your latest eco-visio CSV file in `Data/Raw` (using the correct naming convention).
+1. Place your latest eco-visio CSV file in `Data/Raw` (using the correct naming convention). If Data/Raw folders don't exist, create it.
 2. Open `Scripts/PowerBIScript.Rmd` in RStudio.
 3. Update the file path in R script to match the new raw data file.
 4. Run the script to generate processed data.
