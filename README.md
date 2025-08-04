@@ -43,7 +43,7 @@ People_Counter/
 
 ### 1) R Script
 
-The People_Counter.Rproj file opens an R project that helps the user create a series of processed datasets from the raw dataset imported from eco-visio (Eco-visio is the platform that manages people counter devices).
+The People_Counter.Rproj file opens an R project that helps the user create a series of processed datasets from the raw dataset imported from eco-visio (Eco-visio is the platform that manages people counter devices). NOTE THIS SCRIPT IS TAILORED FOR CABRILLO NATIONAL MONUMENT SPECIFICALLY AND WILL ONLY WORK FOR ECO-COUNTERS AT CABRILLO NATIONAL MONUMENT
 
 #### R Script How to:
 
