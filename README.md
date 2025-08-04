@@ -6,7 +6,7 @@
 
 ## Overview
 
-The People Counter project at Cabrillo National Monument helps to understand trails and lighthouse usage trends. It processes raw visitor count data and visualizes usage statistics using R and Power BI. While this repository is tailored towards people counter data processing and dashboard generation specific to Cabrillo National Monument, it can easily be tailored for other NPS units looking to immplement their own people counter system. For more information or help on this process, contact taro_katayama@nps.gov
+The People Counter project at Cabrillo National Monument helps to understand trails and lighthouse usage trends. The project processes raw visitor count data and visualizes trail usage statistics using R and Power BI. While this repository is tailored towards people counter data processing and dashboard generation specific to Cabrillo National Monument, it can easily be tailored for other NPS units looking to immplement their own people counter system. For more information or help on this process, contact taro_katayama@nps.gov
 
 ## Table of Contents
 
@@ -43,18 +43,14 @@ People_Counter/
 
 ### 1) R Script
 
-The People_Counter.Rproj file opens an R project that helps the user create a series of processed datasets from the raw dataset imported from eco-visio (Eco-visio is the platform that manages people counter devices).
+The People_Counter.Rproj file opens an R project that helps the user create a series of processed datasets from the raw dataset imported from eco-visio (Eco-visio is the platform that manages people counter devices). NOTE THIS SCRIPT IS TAILORED FOR CABRILLO NATIONAL MONUMENT SPECIFICALLY AND WILL ONLY WORK FOR ECO-COUNTERS AT CABRILLO NATIONAL MONUMENT
 
 #### R Script How to:
 
-If you are completely new to R, then good luck!  
-
-<img src="https://github.com/taroNPS/People_Counter/blob/main/Temp/larry.jpg" width="200">
-
-Just kidding. However, I am assuming that you have R downloaded on your computer and know how to open scripts. Alright, first open the script `People_Counter/Scripts/PowerBIScript.Rmd`.  
+If you are completely new to R, then good luck! Just kidding. However, I am assuming that you have R downloaded on your computer and know how to open scripts. Alright, first open the script `People_Counter/Scripts/PowerBIScript.Rmd`.  
 Next, you will want to update the script with the newest raw data. Update the file path accordingly! 
 
-<img width="900" height="400" alt="image" src="https://github.com/user-attachments/assets/e8a436fe-452d-4a4d-bdcd-a1354e1c6559" />
+<img width="899" height="418" alt="image" src="https://github.com/user-attachments/assets/8f0f061a-4f18-4a1a-80de-5a6971773066" />
 
 Next press run by clicking on the green arrow.
 <img width="900" height="500" alt="image" src="https://github.com/user-attachments/assets/8e0e0f07-4287-4f3d-bc68-1551388ef41f" />
@@ -74,7 +70,7 @@ The Power BI Dashboard lives in the People_Counter root folder. It allows users 
 
 ### 3) Data folder
 
-The data folder contains a `Processed` folder and a `Raw` folder. The raw data downloaded from eco-visio should go in the Raw folder. The data file naming convention should follow `All_20250507_mmdd.csv` format.
+The data folder contains a `Processed` folder and a `Raw` folder. The raw data downloaded from eco-visio should go in the Raw folder. The data file naming convention should follow `All_20250507_mmdd.csv` format. Data folder is hidden for now. In the future, data will be released publicly on DataStore.
 
 ## Installation
 
@@ -93,7 +89,7 @@ The data folder contains a `Processed` folder and a `Raw` folder. The raw data d
 
 ## Usage Example
 
-1. Place your latest eco-visio CSV file in `Data/Raw` (using the correct naming convention).
+1. Place your latest eco-visio CSV file in `Data/Raw` (using the correct naming convention). If Data/Raw folders don't exist, create it.
 2. Open `Scripts/PowerBIScript.Rmd` in RStudio.
 3. Update the file path in R script to match the new raw data file.
 4. Run the script to generate processed data.
