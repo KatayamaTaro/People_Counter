@@ -20,7 +20,6 @@ The People Counter project at Cabrillo National Monument helps to understand tra
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
-- [Acknowledgments](#acknowledgments)
 
 ## File Structure
 ```
@@ -139,8 +138,3 @@ This project is licensed under the [MIT License](LICENSE).
 
 For questions or feedback, please contact the repository owner via GitHub [issues](https://github.com/taroNPS/People_Counter/issues).
 
-## Acknowledgments
-
-- Cabrillo National Monument staff for their support and data collection.
-- [Eco-visio](https://www.eco-visio.net/) for providing the data platform.
-- Power BI for visualization tools.
