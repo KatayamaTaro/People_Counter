@@ -57,7 +57,7 @@ Next press run by clicking on the green arrow.
 
 That's it! The processed dataset should live in `Data/Processed/PowerBI` folder.
 
-<img src="https://github.com/taroNPS/People_Counter/blob/main/Temp/e.gif" width="200">
+<img src="https://github.com/taroNPS/People_Counter/blob/main/images/e.gif" width="200">
 
 ### 2) Power BI Dashboard
 
