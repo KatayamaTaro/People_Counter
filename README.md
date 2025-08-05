@@ -1,7 +1,7 @@
 # People_Counter
 
 <div align="center">
-  <img src="https://github.com/taroNPS/People_Counter/blob/main/Temp/7-2d-girl-side-walk-animation-gif.gif" width="500">
+  <img src="https://github.com/taroNPS/People_Counter/blob/main/images/girl.gif" width="500">
 </div>
 
 ## Overview
