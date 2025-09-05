@@ -1,0 +1,187 @@
+---
+title: "lighthouse"
+output: html_document
+date: "2025-06-03"
+editor_options: 
+  chunk_output_type: console
+---
+Test people counter script
+```{r}
+# Load required libraries
+library(dplyr)
+library(lubridate)
+library(readr)
+
+# Function to process eco-counter data
+process_ecocounter_data <- function(file_path, counter_id = "Lighthouse") {
+ 
+  # Read CSV file, skipping first 2 rows
+  raw_data <- read_csv(file_path, skip = 2)
+ 
+  # Display original column names for verification
+  cat("Original column names:\n")
+  print(names(raw_data))
+ 
+  # Process the data
+  processed_data <- raw_data %>%
+    # Skip any additional NA rows that might exist
+    filter(!is.na(Time)) %>%
+   
+    # Rename columns to standard names (adjust column names as needed)
+    rename(
+      DateTime_raw = Time,
+      PedestriansIn = `Lighthouse Pedestrian towards lighthouse`,
+      PedestriansOut = `Lighthouse Pedestrian out of lighthouse`
+    ) %>%
+   
+    # Convert DateTime - handle the MM/DD/YYYY H:MM format
+    mutate(
+      DateTime = mdy_hm(DateTime_raw),
+     
+      # Handle any parsing failures by trying alternative formats
+      DateTime = case_when(
+        is.na(DateTime) ~ mdy_hms(paste0(DateTime_raw, ":00")),
+        TRUE ~ DateTime
+      )
+    ) %>%
+   
+    # Remove rows where DateTime parsing failed
+    filter(!is.na(DateTime)) %>%
+   
+    # Create additional required fields
+    mutate(
+      CounterID = counter_id,
+      TotalCount = PedestriansIn + PedestriansOut,
+      Date = as.Date(DateTime),
+      Hour = hour(DateTime),
+      Year = year(DateTime),
+      Month = month(DateTime),
+      Day = day(DateTime),
+      Weekday = wday(DateTime, label = TRUE),
+     
+      # Handle any NA values in count data
+      PedestriansIn = ifelse(is.na(PedestriansIn), 0, PedestriansIn),
+      PedestriansOut = ifelse(is.na(PedestriansOut), 0, PedestriansOut),
+      TotalCount = PedestriansIn + PedestriansOut
+    ) %>%
+   
+    # Select and reorder columns for ArcGIS Online
+    select(
+      CounterID,
+      DateTime,
+      Date,
+      Hour,
+      Year,
+      Month,
+      Day,
+      Weekday,
+      PedestriansIn,
+      PedestriansOut,
+      TotalCount
+    ) %>%
+   
+    # Sort by DateTime
+    arrange(DateTime)
+ 
+  return(processed_data)
+}
+
+# Function to validate the processed data
+validate_data <- function(data) {
+  cat("\n=== DATA VALIDATION SUMMARY ===\n")
+  cat("Total rows:", nrow(data), "\n")
+  cat("Date range:", min(data$Date), "to", max(data$Date), "\n")
+  cat("Missing DateTime values:", sum(is.na(data$DateTime)), "\n")
+  cat("Missing count values:", sum(is.na(data$PedestriansIn) | is.na(data$PedestriansOut)), "\n")
+  cat("Zero total counts:", sum(data$TotalCount == 0), "\n")
+  cat("Negative counts:", sum(data$PedestriansIn < 0 | data$PedestriansOut < 0), "\n")
+ 
+  # Check for data gaps (missing hours)
+  expected_hours <- seq(min(data$DateTime), max(data$DateTime), by = "hour")
+  missing_hours <- length(expected_hours) - nrow(data)
+  cat("Missing hourly records:", missing_hours, "\n")
+ 
+  # Show sample of data
+  cat("\n=== SAMPLE DATA ===\n")
+  print(head(data, 10))
+ 
+  # Show basic statistics
+  cat("\n=== COUNT STATISTICS ===\n")
+  cat("Average hourly total:", round(mean(data$TotalCount), 2), "\n")
+  cat("Max hourly total:", max(data$TotalCount), "\n")
+  cat("Peak hour overall:", data$Hour[which.max(data$TotalCount)], ":00\n")
+}
+
+# Function to export data for ArcGIS Online
+export_for_arcgis <- function(data, output_file = "ecocounter_processed.csv") {
+ 
+  # Format DateTime for ArcGIS (it prefers this format)
+  data_export <- data %>%
+    mutate(
+      DateTime_ArcGIS = format(DateTime, "%Y-%m-%d %H:%M:%S"),
+      Date_ArcGIS = format(Date, "%Y-%m-%d")
+    ) %>%
+    select(-DateTime, -Date) %>%
+    rename(
+      DateTime = DateTime_ArcGIS,
+      Date = Date_ArcGIS
+    ) %>%
+    # Ensure proper column order
+    select(CounterID, DateTime, Date, Hour, Year, Month, Day, Weekday,
+           PedestriansIn, PedestriansOut, TotalCount)
+ 
+  # Write to CSV
+  write_csv(data_export, output_file)
+  cat("Data exported to:", output_file, "\n")
+  cat("Ready for upload to ArcGIS Online!\n")
+ 
+  return(data_export)
+}
+
+# Main execution example
+# Replace "your_file.csv" with your actual file path
+file_path <- "C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/Data/Raw/Lighthouse_20250526_20250609.csv"
+
+# Process the data
+processed_data <- process_ecocounter_data(file_path, counter_id = "Lighthouse")
+
+# Validate the results
+validate_data(processed_data)
+
+# Export for ArcGIS Online
+final_data <- export_for_arcgis(processed_data)
+
+# Optional: Create summary statistics for dashboard insights
+create_summary_stats <- function(data) {
+  daily_summary <- data %>%
+    group_by(Date, CounterID) %>%
+    summarise(
+      DailyTotal = sum(TotalCount),
+      PeakHour = Hour[which.max(TotalCount)],
+      PeakHourCount = max(TotalCount),
+      ActiveHours = sum(TotalCount > 0),
+      .groups = 'drop'
+    )
+ 
+  hourly_averages <- data %>%
+    group_by(Hour, CounterID) %>%
+    summarise(
+      AvgCount = mean(TotalCount),
+      AvgIn = mean(PedestriansIn),
+      AvgOut = mean(PedestriansOut),
+      .groups = 'drop'
+    )
+ 
+  return(list(daily = daily_summary, hourly = hourly_averages))
+}
+
+# Generate summary statistics
+summary_stats <- create_summary_stats(processed_data)
+
+# Export summary data (useful for dashboard indicators)
+write_csv(summary_stats$daily, "daily_summary.csv")
+write_csv(summary_stats$hourly, "hourly_averages.csv")
+
+cat("\nProcessing complete! Files ready for ArcGIS Online upload.\n")
+```
+
