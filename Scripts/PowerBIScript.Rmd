@@ -3,8 +3,11 @@ title: "PowerBI Script"
 output: html_document
 date: "2025-07-21"
 author: "Taro Katayama"
+<<<<<<< HEAD
 editor_options: 
   chunk_output_type: console
+=======
+>>>>>>> 0ab9be9cc4903d7f455b8a82a3a76758ec2893d4
 ---
 
 ```{r setup, include=FALSE}
@@ -25,7 +28,9 @@ library(tidyverse)
 getwd()
 
 # Set file path for data input. When updating with new data, just update the All_20250507_XXXX.csv file path
-file_path <- file.path(".", "Data", "Raw", "All_20250507_0829.csv")
+
+file_path <- file.path(".", "Data", "Raw", "All_20250507_0905.csv")
+
 
 # Main function to process eco-counter data from multiple sites
 process_ecocounter_data <- function(file_path) {
