@@ -3,11 +3,8 @@ title: "PowerBI Script"
 output: html_document
 date: "2025-07-21"
 author: "Taro Katayama"
-<<<<<<< HEAD
 editor_options: 
   chunk_output_type: console
-=======
->>>>>>> 0ab9be9cc4903d7f455b8a82a3a76758ec2893d4
 ---
 
 ```{r setup, include=FALSE}
@@ -24,12 +21,11 @@ library(tidyverse)
 ```
 
 ```{r}
-#Get working directory
-getwd()
-
 # Set file path for data input. When updating with new data, just update the All_20250507_XXXX.csv file path
 
-file_path <- file.path(".", "Data", "Raw", "All_20250507_0905.csv")
+base_dir<- ".."
+
+file_path <- file.path(base_dir, "Data", "Raw", "All_20250507_1215.csv")
 
 
 # Main function to process eco-counter data from multiple sites
@@ -169,7 +165,7 @@ create_powerbi_main <- function(data) {
 }
 
 # Function to export final dataset
-export_powerbi_main <- function(dataset, base_path = "Data/Processed/PowerBI/") {
+export_powerbi_main <- function(dataset, base_path = file.path("..", "Data", "Processed", "PowerBI")) {
   
   # Step 8: Create output directory
   if (!dir.exists(base_path)) {
@@ -196,8 +192,10 @@ export_powerbi_main <- function(dataset, base_path = "Data/Processed/PowerBI/") 
     }
   }
   
-  # Step 10: Export to CSV
-  write_csv(dataset, paste0(base_path, "EcoCounter_PowerBI_Main2.csv"))
+  output_file <- file.path(base_path, "EcoCounter_PowerBI_Main2.csv")
+  print(paste("Writing to file:", output_file))
+  
+  write_csv(dataset, output_file)
   
   return(dataset)
 }
@@ -206,6 +204,7 @@ export_powerbi_main <- function(dataset, base_path = "Data/Processed/PowerBI/") 
 # Step 11: Process the data through the pipeline
 processed_data <- process_ecocounter_data(file_path)
 powerbi_main <- create_powerbi_main(processed_data)
-final_powerbi_data <- export_powerbi_main(powerbi_main)
+final_powerbi_data <- export_powerbi_main(dataset= powerbi_main, 
+                                          base_path = file.path(base_dir, "Data", "Processed", "PowerBI", ""))
 
 ```
