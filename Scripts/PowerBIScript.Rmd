@@ -25,7 +25,7 @@ library(tidyverse)
 
 base_dir<- ".."
 
-file_path <- file.path(base_dir, "Data", "Raw", "All_20250507_1215.csv")
+file_path <- file.path( "Data", "Raw", "All_20250507_20260512.csv")
 
 
 # Main function to process eco-counter data from multiple sites
@@ -90,20 +90,15 @@ process_ecocounter_data <- function(file_path) {
   # Step 5: Combine all sites and calculate totals
   processed_data <- bind_rows(lighthouse_data, bayside_data, lot1_data,
                               lot2_data, oceanside1_data) %>%
-    mutate(
-      # Primary count uses OUT to avoid double counting
-      TotalCount = case_when(
-        is.na(PedestriansOut) & is.na(PedestriansIn) ~ NA_real_,
-        is.na(PedestriansOut) ~ PedestriansIn,
-        TRUE ~ PedestriansOut
-      ),
-      # Combined count for reference
-      CombinedCount = case_when(
-        is.na(PedestriansIn) & is.na(PedestriansOut) ~ NA_real_,
-        is.na(PedestriansIn) ~ PedestriansOut,
-        is.na(PedestriansOut) ~ PedestriansIn,
-        TRUE ~ PedestriansIn + PedestriansOut
-      )
+mutate(
+      PedestriansIn = coalesce(PedestriansIn, 0),
+      PedestriansOut = coalesce(PedestriansOut, 0),
+      
+      # UPDATED: Primary count now uses the average of In and Out
+      TotalCount = (PedestriansIn + PedestriansOut) / 2,
+      
+      # Combined count remains the raw sum
+      CombinedCount = PedestriansIn + PedestriansOut
     ) %>%
     select(CounterID, DateTime, Date, Hour, Year, Month, Day, Weekday,
            PedestriansIn, PedestriansOut, TotalCount, CombinedCount) %>%
@@ -205,6 +200,6 @@ export_powerbi_main <- function(dataset, base_path = file.path("..", "Data", "Pr
 processed_data <- process_ecocounter_data(file_path)
 powerbi_main <- create_powerbi_main(processed_data)
 final_powerbi_data <- export_powerbi_main(dataset= powerbi_main, 
-                                          base_path = file.path(base_dir, "Data", "Processed", "PowerBI", ""))
+                                          base_path = file.path("Data", "Processed", "PowerBI", ""))
 
 ```

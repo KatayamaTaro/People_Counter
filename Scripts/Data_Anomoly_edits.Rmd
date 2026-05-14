@@ -1,0 +1,14 @@
+---
+title: "Data_anomoly_edits"
+output: html_document
+date: "2026-05-14"
+author: "Taro Katayama"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data anomoly edits
+
