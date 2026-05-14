@@ -3,6 +3,8 @@ title: "Data_anomoly_edits"
 output: html_document
 date: "2026-05-14"
 author: "Taro Katayama"
+editor_options: 
+  chunk_output_type: console
 ---
 
 
@@ -11,4 +13,305 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Data anomoly edits
+
+```{r}
+
+getwd()
+# This starts looking from your Project folder instead of the C: drive
+people_counter_processed <- read.csv("Data/Processed/PowerBI/EcoCounter_PowerBI_Main2.csv", header = TRUE)
+
+
+
+
+```
+
+```{r}
+# =============================================================================
+# Oceanside Trail Annual Visitation Analysis
+# =============================================================================
+# Assumes: people_counter_processed is already loaded in your R environment
+# Columns: CounterID, Date, Hour, Year, Month, Day, PedestrianIn, 
+#          PedestrianOut, TotalCount
+# =============================================================================
+#install.packages(c("forecast", "zoo", "scales"))
+library(dplyr)
+library(lubridate)
+library(tidyr)
+library(ggplot2)
+library(forecast)   # for STL decomposition + imputation
+library(zoo)        # for rolling means / na.approx fallback
+
+# -----------------------------------------------------------------------------
+# 0. SETUP & INITIAL PEEK
+# -----------------------------------------------------------------------------
+df <- people_counter_processed
+
+# Ensure Date is Date type
+df$Date <- as.Date(df$Date)
+
+cat("=== Data Overview ===\n")
+cat("Date range:", format(min(df$Date)), "to", format(max(df$Date)), "\n")
+cat("CounterIDs present:\n")
+print(table(df$CounterID))
+cat("Total rows:", nrow(df), "\n\n")
+
+# -----------------------------------------------------------------------------
+# 1. FILTER TO TARGET COUNTERS
+# -----------------------------------------------------------------------------
+target_counters <- c("Oceanside Trail 1", "Tidepool Lot 1")
+
+df_target <- df %>%
+  filter(CounterID %in% target_counters)
+
+cat("Rows after filtering to target counters:", nrow(df_target), "\n\n")
+
+# -----------------------------------------------------------------------------
+# 2. AGGREGATE TO DAILY TOTALS (per CounterID)
+# -----------------------------------------------------------------------------
+# People = TotalCount / 2 (each person triggers in + out)
+daily <- df_target %>%
+  group_by(CounterID, Date, Year, Month, Day) %>%
+  summarise(
+    DailyPedestriansIn  = sum(PedestriansIn,  na.rm = TRUE),
+    DailyPedestriansOut = sum(PedestriansOut, na.rm = TRUE),
+    DailyCombinedCount  = sum(CombinedCount,  na.rm = TRUE),
+    HourlyRecords       = n(),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # People = (In + Out) / 2  — one full trip = one entry + one exit
+    DailyPeople = (DailyPedestriansIn + DailyPedestriansOut) / 2
+  )
+
+cat("=== Daily Summary (first 6 rows per counter) ===\n")
+print(daily %>% group_by(CounterID) %>% slice_head(n = 6))
+
+# -----------------------------------------------------------------------------
+# 3. FLAG SUSPICIOUS DAYS (DailyPeople > 2500)
+# -----------------------------------------------------------------------------
+suspicious_thresholds <- c(
+  "Oceanside Trail 1" = 1000,
+  "Tidepool Lot 1"    = 1500
+)
+
+daily <- daily %>%
+  mutate(
+    Threshold  = suspicious_thresholds[CounterID],
+    Suspicious = DailyPeople > Threshold
+  )
+ 
+suspicious_days <- daily %>% filter(Suspicious)
+ 
+cat("\n=== Suspicious Days (Oceanside Trail 1 > 1000, Tidepool Lot 1 > 1500) ===\n")
+if (nrow(suspicious_days) == 0) {
+  cat("No suspicious days found.\n")
+} else {
+  print(suspicious_days %>% select(CounterID, Date, DailyPeople))
+  cat("Total suspicious day-records flagged:", nrow(suspicious_days), "\n")
+}
+
+# -----------------------------------------------------------------------------
+# 4. REMOVE SUSPICIOUS DAYS (set to NA for imputation)
+# -----------------------------------------------------------------------------
+daily_clean <- daily %>%
+  mutate(DailyPeople_clean = if_else(Suspicious, NA_real_, DailyPeople))
+ 
+# Flag known counter breakdown: Tidepool Lot 1 offline 2025-12-15 to 2026-01-04
+# Counter recorded 0s during this period (not NA), so we force them to NA
+# so the STL imputation treats the whole window as a gap to fill.
+breakdown_start <- as.Date("2025-12-15")
+breakdown_end   <- as.Date("2026-01-04")
+ 
+daily_clean <- daily_clean %>%
+  mutate(
+    DailyPeople_clean = if_else(
+      CounterID == "Tidepool Lot 1" &
+        Date >= breakdown_start & Date <= breakdown_end,
+      NA_real_,          # overwrite both 0s and any existing NAs
+      DailyPeople_clean
+    )
+  )
+ 
+breakdown_days <- sum(
+  daily_clean$CounterID == "Tidepool Lot 1" &
+  daily_clean$Date >= breakdown_start &
+  daily_clean$Date <= breakdown_end
+)
+cat("Tidepool Lot 1 breakdown days forced to NA:", breakdown_days, "\n")
+cat("Total days flagged as NA for imputation (suspicious + breakdown):",
+    sum(is.na(daily_clean$DailyPeople_clean)), "\n\n")
+ 
+# -----------------------------------------------------------------------------
+
+# 5. TIME SERIES IMPUTATION & FORECASTING PER COUNTER
+#    - Tidepool Lot 1:    observed 2025-05-07 to 2026-05-07 (fill any gaps)
+#    - Oceanside Trail 1: observed from 2025-06-12, forecast forward to 2026-06-12
+# -----------------------------------------------------------------------------
+ 
+impute_and_forecast <- function(counter_data, counter_name,
+                                annual_start, annual_end) {
+ 
+  cat("--- Processing:", counter_name, "---\n")
+  cat("  Annual window:", format(annual_start), "to", format(annual_end), "\n")
+ 
+  # Build full date spine for the observed data range
+  obs_start  <- min(counter_data$Date)
+  obs_end    <- max(counter_data$Date)
+  full_dates <- data.frame(Date = seq(obs_start, obs_end, by = "day"))
+ 
+  merged <- full_dates %>%
+    left_join(counter_data %>% select(Date, DailyPeople_clean, Suspicious),
+              by = "Date")
+ 
+  n_missing <- sum(is.na(merged$DailyPeople_clean))
+  cat("  Observed days:", nrow(merged), "| Missing/flagged:", n_missing, "\n")
+ 
+  # --- Impute internal gaps using STL (weekly seasonality) ---
+  ts_obs        <- ts(merged$DailyPeople_clean, frequency = 7)
+  imputed_values <- pmax(as.numeric(na.interp(ts_obs)), 0)
+ 
+  merged$DailyPeople_imputed <- imputed_values
+  merged$Imputed             <- is.na(merged$DailyPeople_clean)
+  merged$Forecasted          <- FALSE
+  merged$CounterID           <- counter_name
+ 
+  # --- Forecast future dates if annual_end extends beyond observed data ---
+  if (annual_end > obs_end) {
+ 
+    n_forecast <- as.integer(annual_end - obs_end)
+    cat("  Forecasting", n_forecast, "days beyond", format(obs_end), "\n")
+ 
+    # Fit ETS model on imputed series with weekly seasonality
+    ts_fit <- ts(merged$DailyPeople_imputed, frequency = 7)
+    fit    <- ets(ts_fit)
+    fc     <- forecast(fit, h = n_forecast)
+ 
+    future_dates <- seq(obs_end + 1, annual_end, by = "day")
+    future_df <- data.frame(
+      Date                = future_dates,
+      DailyPeople_clean   = NA_real_,
+      Suspicious          = FALSE,
+      DailyPeople_imputed = pmax(as.numeric(fc$mean), 0),
+      Imputed             = FALSE,
+      Forecasted          = TRUE,
+      CounterID           = counter_name
+    )
+ 
+    merged <- bind_rows(merged, future_df)
+  }
+ 
+  # --- Trim to the exact annual window ---
+  merged <- merged %>%
+    filter(Date >= annual_start & Date <= annual_end)
+ 
+  cat("  Days in annual window:", nrow(merged),
+      "| Forecasted:", sum(merged$Forecasted), "\n\n")
+ 
+  return(merged)
+}
+ 
+# --- Run per counter with their specific annual windows ---
+ 
+tidepool_daily <- impute_and_forecast(
+  counter_data = daily_clean %>% filter(CounterID == "Tidepool Lot 1"),
+  counter_name = "Tidepool Lot 1",
+  annual_start = as.Date("2025-05-07"),
+  annual_end   = as.Date("2026-05-07")
+)
+ 
+oceanside_daily <- impute_and_forecast(
+  counter_data = daily_clean %>% filter(CounterID == "Oceanside Trail 1"),
+  counter_name = "Oceanside Trail 1",
+  annual_start = as.Date("2025-06-12"),
+  annual_end   = as.Date("2026-06-12")
+)
+ 
+# -----------------------------------------------------------------------------
+# 6. ANNUAL TOTALS TABLE
+# -----------------------------------------------------------------------------
+ 
+annual_totals <- bind_rows(
+  tidepool_daily %>% summarise(
+    CounterID      = "Tidepool Lot 1",
+    AnnualStart    = as.Date("2025-05-07"),
+    AnnualEnd      = as.Date("2026-05-06"),
+    TotalDays      = n(),
+    DaysObserved   = sum(!Imputed & !Forecasted),
+    DaysImputed    = sum(Imputed),
+    DaysForecasted = sum(Forecasted),
+    AnnualPeople   = round(sum(DailyPeople_imputed, na.rm = TRUE))
+  ),
+  oceanside_daily %>% summarise(
+    CounterID      = "Oceanside Trail 1",
+    AnnualStart    = as.Date("2025-06-12"),
+    AnnualEnd      = as.Date("2026-06-11"),
+    TotalDays      = n(),
+    DaysObserved   = sum(!Imputed & !Forecasted),
+    DaysImputed    = sum(Imputed),
+    DaysForecasted = sum(Forecasted),
+    AnnualPeople   = round(sum(DailyPeople_imputed, na.rm = TRUE))
+  )
+) %>%
+  mutate(
+    PctImputed    = round(100 * DaysImputed    / TotalDays, 1),
+    PctForecasted = round(100 * DaysForecasted / TotalDays, 1)
+  )
+ 
+cat("=== ANNUAL TRAIL USAGE SUMMARY ===\n")
+print(annual_totals)
+
+
+# -----------------------------------------------------------------------------
+# 7. LINE CHART — Daily visitors by data type, both counters on one plot
+# -----------------------------------------------------------------------------
+ 
+# Combine both counters and tag each day's data type
+plot_data <- bind_rows(tidepool_daily, oceanside_daily) %>%
+  mutate(
+    DataType = case_when(
+      Forecasted ~ "Forecasted",
+      Imputed    ~ "Imputed",
+      TRUE       ~ "Observed"
+    ),
+    DataType = factor(DataType, levels = c("Observed", "Imputed", "Forecasted"))
+  )
+ 
+# Colour palette
+type_colours <- c(
+  "Observed"   = "#2C7BB6",
+  "Imputed"    = "#F4A400",
+  "Forecasted" = "#D7191C"
+)
+ 
+p_line <- ggplot(plot_data, aes(x = Date, y = DailyPeople_imputed, group = CounterID)) +
+  # Grey backbone line for continuity
+  geom_line(linewidth = 0.35, alpha = 0.35, colour = "grey70") +
+  # Coloured points by data type
+  geom_point(aes(colour = DataType), size = 0.9, alpha = 0.9) +
+  scale_colour_manual(values = type_colours, name = "Data Type") +
+  scale_x_date(
+    date_breaks = "1 month",
+    date_labels = "%b '%y",
+    expand      = expansion(mult = c(0.01, 0.02))
+  ) +
+  scale_y_continuous(labels = scales::comma, limits = c(0, NA)) +
+  facet_wrap(~CounterID, ncol = 1, scales = "free_y") +
+  labs(
+    title    = "Daily Trail Visitors — Oceanside Trail 1 & Tidepool Lot 1",
+    subtitle = "Blue = observed  |  Orange = imputed (gap-filled)  |  Red = forecasted",
+    x        = NULL,
+    y        = "Daily Visitors"
+  ) +
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position  = "top",
+    axis.text.x      = element_text(angle = 45, hjust = 1, size = 8),
+    panel.grid.minor = element_blank(),
+    strip.text       = element_text(face = "bold"),
+    plot.title       = element_text(face = "bold"),
+    plot.subtitle    = element_text(colour = "grey40", size = 9)
+  )
+ 
+print(p_line)
+```
 

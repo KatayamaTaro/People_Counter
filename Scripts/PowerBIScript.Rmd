@@ -147,11 +147,6 @@ create_powerbi_main <- function(data) {
     mutate(
       PedestriansIn = ifelse(is.na(PedestriansIn), 0, PedestriansIn),
       PedestriansOut = ifelse(is.na(PedestriansOut), 0, PedestriansOut),
-      TotalCount = case_when(
-        PedestriansOut > 0 ~ PedestriansOut,
-        PedestriansOut == 0 & PedestriansIn > 0 ~ PedestriansIn,
-        TRUE ~ 0
-      ),
       CombinedCount = PedestriansIn + PedestriansOut,
       LastUpdated = format(Sys.time(), "%Y-%m-%d %H:%M:%S")
     )
