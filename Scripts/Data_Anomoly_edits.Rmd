@@ -42,6 +42,10 @@ library(forecast)   # for STL decomposition + imputation
 library(zoo)        # for rolling means / na.approx fallback
 
 # -----------------------------------------------------------------------------
+```
+
+
+```{r}
 # 0. SETUP & INITIAL PEEK
 # -----------------------------------------------------------------------------
 df <- people_counter_processed
@@ -62,8 +66,6 @@ target_counters <- c("Oceanside Trail 1", "Tidepool Lot 1")
 
 df_target <- df %>%
   filter(CounterID %in% target_counters)
-
-cat("Rows after filtering to target counters:", nrow(df_target), "\n\n")
 
 # -----------------------------------------------------------------------------
 # 2. AGGREGATE TO DAILY TOTALS (per CounterID)
@@ -91,7 +93,7 @@ print(daily %>% group_by(CounterID) %>% slice_head(n = 6))
 # -----------------------------------------------------------------------------
 suspicious_thresholds <- c(
   "Oceanside Trail 1" = 1000,
-  "Tidepool Lot 1"    = 1500
+  "Tidepool Lot 1"    = 1750
 )
 
 daily <- daily %>%
@@ -102,7 +104,7 @@ daily <- daily %>%
  
 suspicious_days <- daily %>% filter(Suspicious)
  
-cat("\n=== Suspicious Days (Oceanside Trail 1 > 1000, Tidepool Lot 1 > 1500) ===\n")
+cat("\n=== Suspicious Days (Oceanside Trail 1 > 1000, Tidepool Lot 1 > 1750) ===\n")
 if (nrow(suspicious_days) == 0) {
   cat("No suspicious days found.\n")
 } else {
@@ -216,7 +218,7 @@ tidepool_daily <- impute_and_forecast(
   counter_data = daily_clean %>% filter(CounterID == "Tidepool Lot 1"),
   counter_name = "Tidepool Lot 1",
   annual_start = as.Date("2025-05-07"),
-  annual_end   = as.Date("2026-05-07")
+  annual_end   = as.Date("2026-06-12")
 )
  
 oceanside_daily <- impute_and_forecast(
@@ -234,7 +236,7 @@ annual_totals <- bind_rows(
   tidepool_daily %>% summarise(
     CounterID      = "Tidepool Lot 1",
     AnnualStart    = as.Date("2025-05-07"),
-    AnnualEnd      = as.Date("2026-05-06"),
+    AnnualEnd      = as.Date("2026-06-12"),
     TotalDays      = n(),
     DaysObserved   = sum(!Imputed & !Forecasted),
     DaysImputed    = sum(Imputed),
