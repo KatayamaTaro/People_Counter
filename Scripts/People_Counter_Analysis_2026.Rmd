@@ -25,12 +25,14 @@ people_counter_processed <- read.csv("Data/Processed/PowerBI/EcoCounter_PowerBI_
 # =============================================================================
 library(dplyr)
 library(lubridate)
-library(tidyr)
+library(tidyverse)
 library(ggplot2)
 library(forecast)   # for STL decomposition + imputation
 library(zoo)        # for rolling means / na.approx fallback
 library(scales)
-
+library(ggridges)
+devtools::install_github("an-bui/calecopal")
+library(calecopal)
 # -----------------------------------------------------------------------------
 ```
 
@@ -68,17 +70,21 @@ trail_data <- df_processed %>%
 # Monthly visitation graph
 # =============================================================================
 
+
 monthly_summary <- trail_data %>%
   filter(is_mismatch == FALSE, !CounterID == 'Tidepool Lot 2') %>%
   group_by(CounterID, MonthYear) %>%
   summarise(TotalVisitors = sum(CombinedCount, na.rm = TRUE), .groups = "drop") %>%
   mutate(MonthYear_date = ym(MonthYear))  # converts "2025-05" -> Date (2025-05-01)
 
-ggplot(monthly_summary, aes(x = MonthYear_date, y = TotalVisitors, color = CounterID)) +
-  geom_line() +
-  geom_point(size = 1.5) +
+n_locations <- n_distinct(monthly_summary$CounterID)
+
+month_summary_plot<- ggplot(monthly_summary, aes(x = MonthYear_date, y = TotalVisitors, color = CounterID)) +
+  geom_line(size = 0.75) +
+  geom_point(size = 2) +
   scale_y_continuous(labels = comma) +
   scale_x_date(date_labels = "%b %Y", date_breaks = "1 month") +
+  scale_color_manual(values = cal_palette(name = 'figmtn', n = n_locations, type = 'continuous')) +
   labs(
     x = "Month",
     y = "Number of visitors",
@@ -91,5 +97,155 @@ ggplot(monthly_summary, aes(x = MonthYear_date, y = TotalVisitors, color = Count
     panel.grid = element_blank(),
     legend.position = "right"
   )
+
+month_summary_plot
 ```
+
+```{r}
+# =============================================================================
+# Ridgeline plot activity levels during hours of day on each trail
+# =============================================================================
+
+
+ridgeline_data1 <- trail_data %>%
+  filter(is_mismatch == FALSE) %>%
+  filter(CounterID != "Tidepool Lot 2") %>%
+  filter(CounterID == c("Tidepool Lot 1", "Lighthouse"))%>%
+  mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
+  group_by(CounterID, Weekday, Hour) %>%
+  summarise(Visitors = mean(CombinedCount, na.rm = TRUE), .groups = "drop")
+
+ridgelineplot1 <- ggplot(data = ridgeline_data1) + 
+  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100, 
+                               fill = fct_rev(Weekday)), alpha = 0.6) +
+  scale_fill_manual(values = cal_palette(name = 'figmtn', n = 7, type = 'continuous')) +
+  scale_x_continuous(breaks = c(9,11, 13, 15,17, 19), limits = c(7,19)) + 
+  geom_vline(xintercept = c(9,17), linetype = "dashed")+
+  xlab('Hour of day') + 
+  ylab('Visitor activity') +
+  facet_wrap(~CounterID, nrow = 1)+
+  theme_bw()+
+  theme(panel.grid = element_blank())
+
+ridgelineplot1
+
+ridgeline_data2 <- trail_data %>%
+  filter(is_mismatch == FALSE) %>%
+  filter(CounterID != "Tidepool Lot 2") %>%
+  filter(CounterID  == c("Bayside Trail", "Oceanside Trail 1"))%>%
+  mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
+  group_by(CounterID, Weekday, Hour) %>%
+  summarise(Visitors = mean(CombinedCount, na.rm = TRUE), .groups = "drop")
+
+ridgelineplot2 <- ggplot(data = ridgeline_data2) + 
+  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100, 
+                               fill = fct_rev(Weekday)), alpha = 0.6) +
+  scale_fill_manual(values = cal_palette(name = 'figmtn', n = 7, type = 'continuous')) +
+  scale_x_continuous(breaks = c(9,11, 13, 15,17, 19), limits = c(7,19)) + 
+  geom_vline(xintercept = c(9,17), linetype = "dashed")+
+  xlab('Hour of day') + 
+  ylab('Visitor activity') +
+  facet_wrap(~CounterID, nrow = 1)+
+  theme_bw()+
+  theme(panel.grid = element_blank())
+
+ridgelineplot2
+```
+
+```{r}
+
+# =============================================================================
+# boxplot visitatin per day of week
+# =============================================================================
+
+# Summarize by day of week per counter
+dayofweek_summary <- trail_data %>%
+  filter(is_mismatch == FALSE, CounterID !="Tidepool Lot 2") %>%
+  filter(Date >= as.Date("2025-06-12") & Date <= as.Date("2026-06-12")) %>%
+  group_by(CounterID, Date, DayOfWeek) %>%
+  summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
+  mutate(DayOfWeek = factor(DayOfWeek, 
+                             levels = c("Monday","Tuesday","Wednesday","Thursday",
+                                        "Friday","Saturday","Sunday")))
+
+# Step 2: plot
+dow_boxplot <- ggplot(dayofweek_summary, aes(x = DayOfWeek, y = DailyVisitors, fill = DayOfWeek)) +
+  geom_jitter(aes(color = DayOfWeek), width = 0.2, alpha = 0.5, size = 1) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6, color = "black") +
+  scale_fill_manual(values = cal_palette(name = 'chaparral1', n = 7, type = 'continuous')) +
+  scale_color_manual(values = cal_palette(name = 'chaparral1', n = 7, type = 'continuous')) +
+  scale_y_continuous(labels = comma, breaks = pretty_breaks(n = 10)) +
+  facet_wrap(~ CounterID, nrow = 1) +
+  labs(x = "Day of week", y = "Visitors per day") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    panel.grid = element_blank(),
+    legend.position = "none"
+  )
+
+dow_boxplot
+```
+
+```{r}
+# =============================================================================
+# Busiest Day Trends
+# =============================================================================
+
+
+# Step 1: build daily totals + calendar coordinates
+calendar_data <- trail_data %>%
+  filter(is_mismatch == FALSE, CounterID !="Tidepool Lot 2") %>%
+  group_by(CounterID, Date, DayOfWeek) %>%
+  summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    Year = year(Date),
+    Week = as.numeric(format(Date, "%U")),
+    Weekday = factor(DayOfWeek, 
+                      levels = c("Sunday","Saturday","Friday","Thursday",
+                                 "Wednesday","Tuesday","Monday"))
+  )
+
+# Step 2: flag top 10 busiest days per counter
+top_flags <- calendar_data %>%
+  group_by(CounterID) %>%
+  slice_max(order_by = DailyVisitors, n = 10) %>%
+  mutate(is_top10 = TRUE) %>%
+  ungroup() %>%
+  select(CounterID, Date, is_top10)
+
+calendar_data <- calendar_data %>%
+  left_join(top_flags, by = c("CounterID", "Date")) %>%
+  mutate(is_top10 = replace_na(is_top10, FALSE))
+
+# Step 3: build month break positions (week number of the 1st of each month)
+month_breaks <- calendar_data %>%
+  distinct(Date) %>%
+  mutate(Week = as.numeric(format(Date, "%U")), Day = day(Date)) %>%
+  filter(Day == 1) %>%
+  mutate(MonthLabel = format(Date, "%b")) %>%
+  distinct(Week, MonthLabel)
+
+# Step 4: plot
+calendar_heatmap <- ggplot(calendar_data, aes(x = Week, y = Weekday, fill = DailyVisitors)) +
+  geom_tile(color = "white", linewidth = 0.3) +
+  geom_tile(data = filter(calendar_data, is_top10), 
+            color = "black", linewidth = 1, fill = NA) +
+  scale_fill_gradientn(colors = cal_palette(name = 'calochortus', n = 10, type = 'continuous'),
+                        labels = scales::comma) +
+  scale_x_continuous(breaks = month_breaks$Week, labels = month_breaks$MonthLabel) +
+  facet_grid(CounterID ~ Year, scales = "free_x") +
+  labs(x = NULL, y = NULL, fill = "Daily\nVisitors",
+       title = "Daily Visitor Activity by Counter",
+       subtitle = "Black outlines mark each counter's 10 busiest days") +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    strip.text.y = element_text(angle = 0, face = "bold"),
+    axis.text.x = element_text(size = 8)
+  )
+
+calendar_heatmap
+```
+
 
