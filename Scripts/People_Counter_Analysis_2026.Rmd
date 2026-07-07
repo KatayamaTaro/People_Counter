@@ -31,7 +31,7 @@ library(forecast)   # for STL decomposition + imputation
 library(zoo)        # for rolling means / na.approx fallback
 library(scales)
 library(ggridges)
-devtools::install_github("an-bui/calecopal")
+#devtools::install_github("an-bui/calecopal")
 library(calecopal)
 # -----------------------------------------------------------------------------
 ```
@@ -99,11 +99,14 @@ month_summary_plot<- ggplot(monthly_summary, aes(x = MonthYear_date, y = TotalVi
   )
 
 month_summary_plot
+
+ggsave(filename = './figures/monthly_summary_plot.png',
+       dpi = 600)
 ```
 
 ```{r}
 # =============================================================================
-# Ridgeline plot activity levels during hours of day on each trail
+# Ridgeline plot activity levels during hours of day on each trail (tidepool and lighthouse)
 # =============================================================================
 
 
@@ -113,21 +116,31 @@ ridgeline_data1 <- trail_data %>%
   filter(CounterID == c("Tidepool Lot 1", "Lighthouse"))%>%
   mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
   group_by(CounterID, Weekday, Hour) %>%
-  summarise(Visitors = mean(CombinedCount, na.rm = TRUE), .groups = "drop")
+  summarise(Visitors = mean(PedestrianCount, na.rm = TRUE), .groups = "drop")
 
 ridgelineplot1 <- ggplot(data = ridgeline_data1) + 
-  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100, 
-                               fill = fct_rev(Weekday)), alpha = 0.6) +
+  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100,
+                               fill = fct_rev(Weekday)), alpha = 0.4, linewidth = 0.2) +
   scale_fill_manual(values = cal_palette(name = 'figmtn', n = 7, type = 'continuous')) +
   scale_x_continuous(breaks = c(9,11, 13, 15,17, 19), limits = c(7,19)) + 
   geom_vline(xintercept = c(9,17), linetype = "dashed")+
   xlab('Hour of day') + 
   ylab('Visitor activity') +
+  labs(fill = "Weekday")+
   facet_wrap(~CounterID, nrow = 1)+
   theme_bw()+
   theme(panel.grid = element_blank())
 
 ridgelineplot1
+
+ggsave(filename = './figures/ridgelineplot1.png',
+       width = 6, height = 7,
+       dpi = 600)
+
+
+# =============================================================================
+# Ridgeline plot activity levels during hours of day on each trail (Bayside and Oceanside Trail)
+# =============================================================================
 
 ridgeline_data2 <- trail_data %>%
   filter(is_mismatch == FALSE) %>%
@@ -135,27 +148,30 @@ ridgeline_data2 <- trail_data %>%
   filter(CounterID  == c("Bayside Trail", "Oceanside Trail 1"))%>%
   mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
   group_by(CounterID, Weekday, Hour) %>%
-  summarise(Visitors = mean(CombinedCount, na.rm = TRUE), .groups = "drop")
+  summarise(Visitors = mean(PedestrianCount, na.rm = TRUE), .groups = "drop")
 
 ridgelineplot2 <- ggplot(data = ridgeline_data2) + 
   geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100, 
-                               fill = fct_rev(Weekday)), alpha = 0.6) +
+                               fill = fct_rev(Weekday)), alpha = 0.6, linewidth = 0.2) +
   scale_fill_manual(values = cal_palette(name = 'figmtn', n = 7, type = 'continuous')) +
   scale_x_continuous(breaks = c(9,11, 13, 15,17, 19), limits = c(7,19)) + 
   geom_vline(xintercept = c(9,17), linetype = "dashed")+
   xlab('Hour of day') + 
   ylab('Visitor activity') +
+    labs(fill = "Weekday")+
   facet_wrap(~CounterID, nrow = 1)+
   theme_bw()+
   theme(panel.grid = element_blank())
 
 ridgelineplot2
+ggsave(filename = './figures/ridgelineplot2.png',
+       width = 6, height = 7,dpi = 600)
 ```
 
 ```{r}
 
 # =============================================================================
-# boxplot visitatin per day of week
+# boxplot visitation per day of week
 # =============================================================================
 
 # Summarize by day of week per counter
@@ -170,8 +186,8 @@ dayofweek_summary <- trail_data %>%
 
 # Step 2: plot
 dow_boxplot <- ggplot(dayofweek_summary, aes(x = DayOfWeek, y = DailyVisitors, fill = DayOfWeek)) +
-  geom_jitter(aes(color = DayOfWeek), width = 0.2, alpha = 0.5, size = 1) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.6, color = "black") +
+  geom_jitter(aes(color = DayOfWeek), width = 0.2, alpha = 0.5, size = 0.7) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6, color = "black", linewidth = 0.2) +
   scale_fill_manual(values = cal_palette(name = 'chaparral1', n = 7, type = 'continuous')) +
   scale_color_manual(values = cal_palette(name = 'chaparral1', n = 7, type = 'continuous')) +
   scale_y_continuous(labels = comma, breaks = pretty_breaks(n = 10)) +
@@ -179,12 +195,15 @@ dow_boxplot <- ggplot(dayofweek_summary, aes(x = DayOfWeek, y = DailyVisitors, f
   labs(x = "Day of week", y = "Visitors per day") +
   theme_bw() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
     panel.grid = element_blank(),
     legend.position = "none"
   )
 
 dow_boxplot
+ggsave(filename = './figures/boxplot.png',
+       width = 6, height = 5,
+       dpi = 600)
 ```
 
 ```{r}
@@ -230,8 +249,8 @@ month_breaks <- calendar_data %>%
 calendar_heatmap <- ggplot(calendar_data, aes(x = Week, y = Weekday, fill = DailyVisitors)) +
   geom_tile(color = "white", linewidth = 0.3) +
   geom_tile(data = filter(calendar_data, is_top10), 
-            color = "black", linewidth = 1, fill = NA) +
-  scale_fill_gradientn(colors = cal_palette(name = 'calochortus', n = 10, type = 'continuous'),
+            color = "black", linewidth = 0.15, fill = NA) +
+  scale_fill_gradientn(colors = cal_palette(name = 'fire', n = 10, type = 'continuous'),
                         labels = scales::comma) +
   scale_x_continuous(breaks = month_breaks$Week, labels = month_breaks$MonthLabel) +
   facet_grid(CounterID ~ Year, scales = "free_x") +
@@ -241,11 +260,22 @@ calendar_heatmap <- ggplot(calendar_data, aes(x = Week, y = Weekday, fill = Dail
   theme_minimal() +
   theme(
     panel.grid = element_blank(),
-    strip.text.y = element_text(angle = 0, face = "bold"),
-    axis.text.x = element_text(size = 8)
+    strip.text.y = element_text(angle = 270, face = "bold", size = 5),
+    axis.text.x = element_text(size = 5),
+    axis.text.y = element_text(size = 5),
+    legend.key.size = unit(0.4, "cm"),  
+    legend.text = element_text(size = 4), 
+    legend.title = element_text(size = 7),
+    plot.title = element_text(size = 10),
+    plot.subtitle = element_text(size = 8)
   )
 
 calendar_heatmap
+ggsave(filename = './figures/heatcalendar.png',
+       width = 8, height = 4,
+       dpi = 600,
+       units = "in",
+       bg = "white")
 ```
 
 
