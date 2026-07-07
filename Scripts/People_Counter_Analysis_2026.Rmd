@@ -1,0 +1,10 @@
+---
+title: "People_Counter_Yearly_Analysis_2026"
+output: html_document
+date: "2026-07-02"
+---
+
+```{r}
+
+```
+
