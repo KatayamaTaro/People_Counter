@@ -23,10 +23,10 @@ library(tidyverse)
 ```{r}
 # Set file path for data input. When updating with new data, just update the All_20250507_XXXX.csv file path
 getwd()
-setwd("C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/")
-base_dir<- ".."
+#setwd("C:/Users/tkatayama/OneDrive - DOI/Documents/Projects/R/People_Counter/")
+#base_dir<- ".."
 
-file_path <- file.path( "Data", "Raw", "All_20250507_20260630.csv")
+file_path <- file.path( "Data", "Raw", "All_20250507_20260708.csv")
 
 
 # Main function to process eco-counter data from multiple sites
