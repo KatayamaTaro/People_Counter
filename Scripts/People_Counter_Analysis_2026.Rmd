@@ -65,7 +65,9 @@ trail_data <- df_processed %>%
     is_mismatch = imbalance_ratio > 0.95 & CombinedCount > 50,  # tune threshold + minimum volume
     PedestriansIn_clean = if_else(is_mismatch, NA_real_, PedestriansIn),
     PedestriansOut_clean = if_else(is_mismatch, NA_real_, PedestriansOut)
-  )
+  )%>%
+  filter(!CounterID == 'Tidepool Lot 2')
+  
 
 ```
 
@@ -78,33 +80,65 @@ trail_data<- trail_data%>%
   filter(Date >= as.Date("2025-07-01") & Date <= as.Date("2026-06-30"))
 ```
 
-
-
-
 ```{r}
 # =============================================================================
 # Monthly visitation graph
 # =============================================================================
 
+IRMA_monthly_visitation<- read.csv("Data/Raw/CABR_Visits_Monthly.csv", skip=3 ,header = TRUE)
+
+IRMA_long <- IRMA_monthly_visitation %>%
+  select(-Textbox5) %>%
+  pivot_longer(
+    cols = JAN:DEC,
+    names_to = "Month",
+    values_to = "TotalVisitors"
+  ) %>%
+  mutate(
+    TotalVisitors = str_replace_all(TotalVisitors, ",", ""),
+    TotalVisitors = as.numeric(TotalVisitors),
+    Month_num = match(Month, toupper(month.abb)),
+    MonthYear_date = make_date(Year, Month_num, 1),
+    MonthYear = format(MonthYear_date, "%Y-%m"),
+    CounterID = "EntryStation"
+  ) %>%
+  filter(!is.na(TotalVisitors)) %>%
+  filter(MonthYear_date >= as.Date("2025-07-01") & MonthYear_date <= as.Date("2026-06-30")) %>%
+  select(CounterID, MonthYear, MonthYear_date, TotalVisitors)
+
 
 monthly_summary <- trail_data %>%
-  filter(is_mismatch == FALSE, !CounterID == 'Tidepool Lot 2') %>%
+  filter(is_mismatch == FALSE) %>%
   group_by(CounterID, MonthYear) %>%
   summarise(TotalVisitors = sum(CombinedCount, na.rm = TRUE), .groups = "drop") %>%
   mutate(MonthYear_date = ym(MonthYear))  # converts "2025-05" -> Date (2025-05-01)
 
-n_locations <- n_distinct(monthly_summary$CounterID)
+monthly_summary_combined <- monthly_summary %>%
+  select(CounterID, MonthYear, MonthYear_date, TotalVisitors) %>%  # match column names/order
+  bind_rows(IRMA_long)
 
-month_summary_plot<- ggplot(monthly_summary, aes(x = MonthYear_date, y = TotalVisitors, color = CounterID)) +
+n_locations <- n_distinct(monthly_summary_combined$CounterID)
+
+counter_order <- c("EntryStation", "Lighthouse", "Tidepool Lot 1", "Oceanside Trail 1", "Bayside Trail")
+
+monthly_summary_combined <- monthly_summary_combined %>%
+  mutate(CounterID = factor(CounterID, levels = counter_order))
+
+month_summary_plot <- ggplot(monthly_summary_combined, aes(x = MonthYear_date, y = TotalVisitors, color = CounterID, linetype = CounterID)) +
   geom_line(size = 0.75) +
   geom_point(size = 2) +
   scale_y_continuous(labels = comma) +
   scale_x_date(date_labels = "%b %Y", date_breaks = "1 month") +
   scale_color_manual(values = cal_palette(name = 'figmtn', n = n_locations, type = 'continuous')) +
+  scale_linetype_manual(values = setNames(
+    if_else(counter_order == "EntryStation", "dashed", "solid"),
+    counter_order
+  )) +
   labs(
     x = "Month",
     y = "Number of visitors",
     color = "Location",
+    linetype = "Location",
     title = "Monthly Visitor Counts by Location"
   ) +
   theme_bw() +
@@ -116,8 +150,9 @@ month_summary_plot<- ggplot(monthly_summary, aes(x = MonthYear_date, y = TotalVi
 
 month_summary_plot
 
+# Save file
 ggsave(filename = './figures/monthly_summary_plot.png',
-       dpi = 600)
+     dpi = 600)
 ```
 
 ```{r}
@@ -128,14 +163,13 @@ ggsave(filename = './figures/monthly_summary_plot.png',
 
 ridgeline_data1 <- trail_data %>%
   filter(is_mismatch == FALSE) %>%
-  filter(CounterID != "Tidepool Lot 2") %>%
-  filter(CounterID == c("Tidepool Lot 1", "Lighthouse"))%>%
-  mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
+  filter(CounterID %in% c("Tidepool Lot 1", "Lighthouse")) %>%
+  mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun"))) %>%
   group_by(CounterID, Weekday, Hour) %>%
   summarise(Visitors = mean(PedestrianCount, na.rm = TRUE), .groups = "drop")
 
 ridgelineplot1 <- ggplot(data = ridgeline_data1) + 
-  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100,
+  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/150,
                                fill = fct_rev(Weekday)), alpha = 0.4, linewidth = 0.2) +
   scale_fill_manual(values = cal_palette(name = 'figmtn', n = 7, type = 'continuous')) +
   scale_x_continuous(breaks = c(9,11, 13, 15,17, 19), limits = c(7,19)) + 
@@ -160,14 +194,13 @@ ggsave(filename = './figures/ridgelineplot1.png',
 
 ridgeline_data2 <- trail_data %>%
   filter(is_mismatch == FALSE) %>%
-  filter(CounterID != "Tidepool Lot 2") %>%
   filter(CounterID  == c("Bayside Trail", "Oceanside Trail 1"))%>%
   mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
   group_by(CounterID, Weekday, Hour) %>%
   summarise(Visitors = mean(PedestrianCount, na.rm = TRUE), .groups = "drop")
 
 ridgelineplot2 <- ggplot(data = ridgeline_data2) + 
-  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/100, 
+  geom_ridgeline(mapping = aes(x = Hour, y = fct_rev(Weekday), height = Visitors/50, 
                                fill = fct_rev(Weekday)), alpha = 0.6, linewidth = 0.2) +
   scale_fill_manual(values = cal_palette(name = 'figmtn', n = 7, type = 'continuous')) +
   scale_x_continuous(breaks = c(9,11, 13, 15,17, 19), limits = c(7,19)) + 
@@ -180,6 +213,7 @@ ridgelineplot2 <- ggplot(data = ridgeline_data2) +
   theme(panel.grid = element_blank())
 
 ridgelineplot2
+
 ggsave(filename = './figures/ridgelineplot2.png',
        width = 6, height = 7,dpi = 600)
 ```
@@ -192,7 +226,7 @@ ggsave(filename = './figures/ridgelineplot2.png',
 
 # Summarize by day of week per counter
 dayofweek_summary <- trail_data %>%
-  filter(is_mismatch == FALSE, CounterID !="Tidepool Lot 2") %>%
+  filter(is_mismatch == FALSE) %>%
   group_by(CounterID, Date, DayOfWeek) %>%
   summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
   mutate(DayOfWeek = factor(DayOfWeek, 
@@ -229,7 +263,7 @@ ggsave(filename = './figures/boxplot.png',
 
 # Step 1: build daily totals + calendar coordinates
 calendar_data <- trail_data %>%
-  filter(is_mismatch == FALSE, CounterID !="Tidepool Lot 2") %>%
+  filter(is_mismatch == FALSE) %>%
   group_by(CounterID, Date, DayOfWeek) %>%
   summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
   mutate(
@@ -286,12 +320,14 @@ calendar_heatmap <- ggplot(calendar_data, aes(x = Week, y = Weekday, fill = Dail
   )
 
 calendar_heatmap
+
 ggsave(filename = './figures/heatcalendar.png',
        width = 8, height = 4,
        dpi = 600,
        units = "in",
        bg = "white")
 ```
+
 
 ```{r}
 # =============================================================================
@@ -308,6 +344,16 @@ holiday_list <- fed_holiday %>%
   na.omit() %>%
   as.character()
 
+trail_data_and_holiday <- trail_data %>%
+  filter(is_mismatch == FALSE) %>%
+  group_by(CounterID, Date, DayOfWeek) %>%
+  summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
+  left_join(fed_holiday %>% select(Date, Holiday), by = "Date")%>%
+  mutate(DayOfWeek = factor(DayOfWeek, 
+                             levels = c("Monday","Tuesday","Wednesday","Thursday",
+                                        "Friday","Saturday","Sunday")))
+
+
 counter_list <- unique(trail_data_and_holiday$CounterID)
 
 holiday_test <- expand_grid(holiday = holiday_list, CounterID = counter_list) %>%
@@ -317,9 +363,8 @@ holiday_test <- expand_grid(holiday = holiday_list, CounterID = counter_list) %>
       filter(CounterID == !!CounterID, Holiday == !!holiday)
     if (nrow(holiday_rows) == 0) return(NULL)
     
-    wd <- unique(holiday_rows$DayOfWeek)
     baseline <- trail_data_and_holiday %>%
-      filter(CounterID == !!CounterID, DayOfWeek %in% wd, is.na(Holiday), DailyVisitors > 0)
+      filter(CounterID == !!CounterID, is.na(Holiday), DailyVisitors > 0)
     if (nrow(baseline) < 3) return(NULL)
     
     holiday_val <- mean(holiday_rows$DailyVisitors)
@@ -405,4 +450,101 @@ ggsave(filename = './figures/holidays2.png',
 
 
 ```
+
+```{r}
+
+
+fed_holiday<-fed_holiday%>%
+  filter(Date >= as.Date("2025-07-01") & Date <= as.Date("2026-06-30"))
+
+# Step 1: build daily totals + calendar coordinates
+calendar_data <- trail_data %>%
+  filter(is_mismatch == FALSE) %>%
+  group_by(CounterID, Date, DayOfWeek) %>%
+  summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
+  mutate(
+    Year = year(Date),
+    Month = factor(format(Date, "%b"), 
+                    levels = c("Jul","Aug","Sep","Oct","Nov","Dec",
+                               "Jan","Feb","Mar","Apr","May","Jun")),
+    DayOfMonth = day(Date),
+    # true calendar-week position: aligns days into real Mon-Sun weeks
+    WeekOfMonth = as.integer(format(Date, "%W")) - 
+                  as.integer(format(floor_date(Date, "month"), "%W")) + 1,
+    Weekday = factor(DayOfWeek, 
+                  levels = c("Monday","Tuesday","Wednesday","Thursday",
+                             "Friday","Saturday","Sunday"))
+  )
+
+# Step 2: flag top 10 busiest days per counter
+top_flags <- calendar_data %>%
+  group_by(CounterID) %>%
+  slice_max(order_by = DailyVisitors, n = 10) %>%
+  mutate(is_top10 = TRUE) %>%
+  ungroup() %>%
+  select(CounterID, Date, is_top10)
+
+# Step 3: flag holidays
+holiday_flags <- fed_holiday %>%
+  filter(Holiday %in% holiday_list) %>%
+  distinct(Date) %>%
+  mutate(is_holiday = TRUE)
+
+calendar_data <- calendar_data %>%
+  left_join(top_flags, by = c("CounterID", "Date")) %>%
+  left_join(holiday_flags, by = "Date") %>%
+  mutate(
+    is_top10 = replace_na(is_top10, FALSE),
+    is_holiday = replace_na(is_holiday, FALSE),
+    is_top10_holiday = is_top10 & is_holiday
+  )
+
+# Step 4: build one plot per CounterID, faceted by Month
+counter_list <- unique(calendar_data$CounterID)
+
+calendar_plots <- map(counter_list, function(ctr) {
+  
+  plot_data <- calendar_data %>% filter(CounterID == ctr)
+  
+  ggplot(plot_data, aes(x = Weekday, y = WeekOfMonth, fill = DailyVisitors)) +
+    geom_tile(color = "white", linewidth = 0.3, width = 1, height = 1) +
+    geom_tile(data = filter(plot_data, is_top10), 
+              color = "green", linewidth = 0.8, fill = NA) +
+    geom_tile(data = filter(plot_data, is_holiday), 
+              color = "blue", linewidth = 0.4, fill = NA, width = 0.5, height = 0.5) +
+    geom_text(aes(label = DayOfMonth), size = 2, color = "white") +
+    scale_fill_gradientn(colors = cal_palette(name = 'fire', n = 10, type = 'continuous'),
+                          labels = scales::comma) +
+    scale_y_reverse(breaks = 1:6) +
+    facet_wrap(~ Month, nrow = 3) +
+    labs(x = NULL, y = NULL, fill = "Daily\nVisitors",
+         title = paste("Daily Visitor Activity —", ctr),
+         subtitle = "Blue = federal holiday · Green = top 10 busiest days") +
+    theme_minimal() +
+    theme(
+      panel.grid = element_blank(),
+      strip.text = element_text(face = "bold", size = 8),
+      axis.text.x = element_text(size = 6, angle = 45, hjust = 1),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      legend.key.size = unit(0.4, "cm"),  
+      legend.text = element_text(size = 6), 
+      legend.title = element_text(size = 7),
+      plot.title = element_text(size = 10),
+      plot.subtitle = element_text(size = 8)
+    )
+}) %>% set_names(counter_list)
+
+calendar_plots[["Bayside Trail"]]
+calendar_plots[["Lighthouse"]]
+calendar_plots[["Tidepool Lot 1"]]
+calendar_plots[["Oceanside Trail 1"]]
+
+walk2(calendar_plots, names(calendar_plots), function(plot, name) {
+  ggsave(filename = paste0("./figures/calendar_", str_replace_all(name, " ", "_"), ".png"),
+         plot = plot, width = 8, height = 6, dpi = 600, bg = "white")
+})
+
+```
+
 
