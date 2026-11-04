@@ -38,6 +38,19 @@ library(readxl)# read excel files
 #install.packages("multcompView")
 library(rstatix)
 library(multcompView)
+#install.packages("changepoint")
+library(changepoint)
+#install.packages("gridExtra")
+library(gridExtra)
+install.packages("grid")
+library(grid)
+#install.packages("emmeans")
+library(emmeans)
+library(broom)
+library(purrr)
+#install.packages("multcomp")
+library(multcomp)
+select <- dplyr::select
 # -----------------------------------------------------------------------------
 ```
 
@@ -53,31 +66,549 @@ df_processed<- df%>%
   rename(PedestrianCount = TotalCount)
 ```
 
+```{ Diagnostic Analysis r}
+
+# ---------------------------------------------------------------------------
+# PART 1: Diagnostic plot of imbalance_ratio distribution, per counter
+# ---------------------------------------------------------------------------
+# Goal: see whether there's a natural break in the distribution (e.g. most
+# days cluster well below 0.95, with a distinct tail near 1.0) rather than
+# picking a round number blind. A visible valley in the density is a much
+# stronger justification for a cutoff than "it seemed reasonable."
+
+imbalance_diagnostic <- df_processed %>%
+  mutate(
+    imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1),
+    CombinedCount = CombinedCount
+  ) %>%
+  filter(!CounterID == "Tidepool Lot 2")
+
+# Overall distribution, all counters pooled
+ggplot(imbalance_diagnostic, aes(x = imbalance_ratio)) +
+  geom_histogram(binwidth = 0.02, boundary = 0, fill = "steelblue", color = "white") +
+  geom_vline(xintercept = c(0.85, 0.90, 0.95, 0.99), linetype = "dashed", color = "firebrick") +
+  labs(
+    title = "Distribution of directional imbalance ratio",
+    subtitle = "Dashed lines mark candidate thresholds (0.85 / 0.90 / 0.95 / 0.99)",
+    x = "imbalance_ratio = max(In, Out) / CombinedCount",
+    y = "Count of days"
+  ) +
+  theme_minimal()
+
+# Per-counter, since a "natural" imbalance (e.g. a one-directional loop
+# entrance) at one site could mimic malfunction at another
+ggplot(imbalance_diagnostic, aes(x = imbalance_ratio)) +
+  geom_histogram(binwidth = 0.02, boundary = 0, fill = "steelblue", color = "white") +
+  geom_vline(xintercept = c(0.85, 0.90, 0.95, 0.99), linetype = "dashed", color = "firebrick") +
+  facet_wrap(~ CounterID, scales = "free_y") +
+  labs(
+    title = "Distribution of directional imbalance ratio by counter",
+    x = "imbalance_ratio", y = "Count of days"
+  ) +
+  theme_minimal()
+
+# Ratio vs. volume, since a mismatch on a high-volume day is more likely a
+# genuine signal than the same ratio on a near-zero-count day
+ggplot(imbalance_diagnostic, aes(x = CombinedCount, y = imbalance_ratio)) +
+  geom_point(alpha = 0.3) +
+  geom_hline(yintercept = 0.90, linetype = "dashed", color = "firebrick") +
+  geom_vline(xintercept = 50, linetype = "dashed", color = "firebrick") +
+  facet_wrap(~ CounterID, scales = "free_x") +
+  labs(
+    title = "Imbalance ratio vs. daily combined count",
+    subtitle = "Dashed lines mark the current cutoff (ratio > 0.90, count > 50)",
+    x = "CombinedCount", y = "imbalance_ratio"
+  ) +
+  theme_minimal()
+
+# If you have known hardware-outage dates (e.g. the Tidepool Lot 1 outage
+# you already handled), overlay them here to check whether your threshold
+# actually catches known-bad periods without over-flagging normal days:
+#
+known_outage_dates <- as.Date(c("2026-03-15", "2026-03-26", "2026-02-27", "2026-02-27", "2026-03-08", "2026-03-12", "2026-03-16", "2026-03-26", "2026-03-21"))
+
+imbalance_diagnostic %>%
+  mutate(known_outage = Date %in% known_outage_dates) %>%
+  ggplot(aes(x = imbalance_ratio, fill = known_outage)) +
+  geom_histogram(binwidth = 0.02, position = "identity", alpha = 0.6) +
+  theme_minimal()
+
+
+# ---------------------------------------------------------------------------
+# PART 2: Threshold sensitivity analysis
+# ---------------------------------------------------------------------------
+# Goal: instead of defending one arbitrary (ratio, min_volume) pair, show
+# that downstream conclusions are stable across a reasonable range. Vary
+# both parameters together, since they jointly determine what gets flagged.
+
+clean_with_threshold <- function(df, ratio_thresh, min_volume) {
+  df %>%
+    mutate(
+      imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1),
+      is_mismatch = imbalance_ratio > ratio_thresh & CombinedCount > min_volume,
+      PedestriansIn_clean = if_else(is_mismatch, NA_real_, PedestriansIn),
+      PedestriansOut_clean = if_else(is_mismatch, NA_real_, PedestriansOut)
+    ) %>%
+    filter(!CounterID == "Tidepool Lot 2")
+}
+
+# Grid of candidate thresholds to test
+threshold_grid <- expand_grid(
+  ratio_thresh = c(0.85, 0.90, 0.95, 0.99),
+  min_volume = c(25, 50, 75)
+)
+
+# --- Diagnostic-level summary: how much data gets flagged at each setting ---
+flag_summary <- threshold_grid %>%
+  mutate(
+    result = map2(ratio_thresh, min_volume, function(rt, mv) {
+      cleaned <- clean_with_threshold(df_processed, rt, mv)
+      cleaned %>%
+        summarise(
+          n_days = n(),
+          n_flagged = sum(is_mismatch, na.rm = TRUE),
+          pct_flagged = round(100 * n_flagged / n_days, 2)
+        )
+    })
+  ) %>%
+  unnest(result)
+
+print(flag_summary)
+
+ggplot(flag_summary, aes(x = ratio_thresh, y = pct_flagged, color = factor(min_volume))) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Share of days flagged as mismatched, across threshold settings",
+    x = "Ratio threshold", y = "% of days flagged",
+    color = "Min. volume floor"
+  ) +
+  theme_minimal()
+
+# --- Downstream-conclusion-level check ---
+# Swap in whatever your actual downstream summary is (annual totals from
+# your STL/ETS forecast, Kruskal-Wallis test statistic, etc.). Below is a
+# simple stand-in using mean daily count by counter as the outcome to track;
+# replace `downstream_summary()` with your real pipeline so you're testing
+# stability of the number you actually report, not a proxy for it.
+
+downstream_summary <- function(df_processed) {
+  df_processed %>%
+    group_by(CounterID) %>%
+    summarise(
+      mean_daily_count_clean = mean(CombinedCount[!is_mismatch], na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+
+sensitivity_results <- threshold_grid %>%
+  mutate(
+    result = map2(ratio_thresh, min_volume, function(rt, mv) {
+      clean_with_threshold(df_processed, rt, mv) %>% downstream_summary()
+    })
+  ) %>%
+  unnest(result)
+
+# Plot how the reported summary statistic moves as thresholds change.
+# A roughly flat set of lines per counter = your conclusions are robust to
+# the exact cutoff, which is the strongest defense of an otherwise arbitrary
+# choice. Sharp jumps = the threshold IS doing meaningful work, and you should
+# pick + justify it more carefully (or report a range instead of a point estimate).
+ggplot(sensitivity_results, aes(x = ratio_thresh, y = mean_daily_count_clean, color = factor(min_volume))) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(~ CounterID, scales = "free_y") +
+  labs(
+    title = "Downstream summary statistic across threshold settings",
+    subtitle = "Flat lines = conclusions robust to threshold choice",
+    x = "Ratio threshold", y = "Mean daily count (cleaned)",
+    color = "Min. volume floor"
+  ) +
+  theme_minimal()
+
+
+# NOTE: free_y scaling above zooms each panel to its own tiny range, which
+# can make small absolute jumps look dramatic (or flat ones look flatter
+# than they are). Check % change, not just visual slope, before calling a
+# line "robust." Also, mean_daily_count_clean is mechanically biased to
+# rise as ratio_thresh loosens, since loosening the threshold un-excludes
+# high-volume flagged days back into the average. That confound alone can
+# produce an upward-sloping line even with no real malfunction signal.
+ 
+# --- Comparison plot: does the downstream statistic move only where a real
+# cluster of days gets un-flagged, or does it drift independent of that? ---
+# If a jump in the summary statistic lines up with a jump in pct_flagged,
+# that's good evidence the jump is being driven by a real cluster of
+# borderline days rather than by the mechanical confound above. If the
+# summary keeps drifting even where pct_flagged is flat, that's a sign
+# something else (e.g. seasonality, a handful of high-volume outlier days
+# unrelated to mismatch) is driving it, not the threshold choice itself.
+ 
+comparison_data <- flag_summary %>%
+  select(ratio_thresh, min_volume, pct_flagged) %>%
+  distinct() %>%
+  left_join(
+    sensitivity_results %>% select(CounterID, ratio_thresh, min_volume, mean_daily_count_clean),
+    by = c("ratio_thresh", "min_volume")
+  ) %>%
+  # scale both series to 0-1 within each counter so they're comparable on
+  # one axis regardless of their native units
+  group_by(CounterID) %>%
+  mutate(
+    pct_flagged_scaled = (pct_flagged - min(pct_flagged)) / (max(pct_flagged) - min(pct_flagged)),
+    mean_count_scaled = (mean_daily_count_clean - min(mean_daily_count_clean)) /
+      (max(mean_daily_count_clean) - min(mean_daily_count_clean))
+  ) %>%
+  ungroup() %>%
+  pivot_longer(
+    cols = c(pct_flagged_scaled, mean_count_scaled),
+    names_to = "series", values_to = "scaled_value"
+  ) %>%
+  mutate(series = recode(series,
+    pct_flagged_scaled = "% days flagged",
+    mean_count_scaled = "Mean daily count (cleaned)"
+  ))
+ 
+ggplot(comparison_data, aes(x = ratio_thresh, y = scaled_value, color = series, linetype = factor(min_volume))) +
+  geom_line() +
+  geom_point(size = 1) +
+  facet_wrap(~ CounterID) +
+  labs(
+    title = "Percent of days flagged vs. downstream summary statistic",
+    subtitle = "Both series rescaled 0-1 per counter for comparability. Jumps that line up = real signal; jumps that don't = check for a confound.",
+    x = "Ratio threshold", y = "Scaled value (0-1 within counter)",
+    color = "Series", linetype = "Min. volume floor"
+  ) +
+  theme_minimal()
+
+# NOTE ON THE ABOVE: in practice both series move together at EVERY
+# threshold value, not just at a few jump points, because loosening the
+# ratio threshold mechanically un-excludes high-volume days from the mean
+# at every step. That makes "do the lines jump together" uninformative as
+# a check, since they're always co-moving by construction. What IS useful
+# from that plot is the *shape* of the cyan line alone: Lighthouse and
+# Bayside Trail plateau (rise, then flatten), meaning there's a bounded
+# cluster of high-count days getting excluded and then nothing more above
+# that ratio. Oceanside Trail 1 and Tidepool Lot 1 never plateau, meaning
+# there's no ratio value where the result settles, so mean-count alone
+# can't identify a "correct" threshold for those two.
+ 
+# ---------------------------------------------------------------------------
+# PART 3: Direct check - are flagged days actually anomalous?
+# ---------------------------------------------------------------------------
+# Sidesteps the mean-count confound above entirely, by comparing the raw
+# CombinedCount distribution of flagged vs. unflagged days directly, rather
+# than looking at a downstream statistic that's mechanically tied to the
+# flag. If flagged days sit distinctly higher (or lower) than the bulk of
+# unflagged days, that's real evidence they're anomalous. If the two
+# distributions overlap heavily, the flag isn't distinguishing a genuinely
+# different population, it is just cutting an arbitrary slice out of a
+# continuum.
+ 
+# Uses your originally stated threshold (ratio > 0.95, CombinedCount > 50).
+# Change ratio_thresh / min_volume below to check other candidate cutoffs.
+flagged_vs_unflagged <- clean_with_threshold(df_processed, ratio_thresh = 0.95, min_volume = 50)
+ 
+ggplot(flagged_vs_unflagged, aes(x = CombinedCount, fill = is_mismatch)) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~ CounterID, scales = "free") +
+  labs(
+    title = "CombinedCount distribution: flagged vs. unflagged days",
+    subtitle = "Heavy overlap = flag may just be slicing a continuum, not isolating anomalies",
+    x = "CombinedCount", y = "Density", fill = "Flagged as mismatch"
+  ) +
+  theme_minimal()
+ 
+# Boxplot version, often easier to read for skewed count data
+ggplot(flagged_vs_unflagged, aes(x = is_mismatch, y = CombinedCount, fill = is_mismatch)) +
+  geom_boxplot(outlier.alpha = 0.3) +
+  facet_wrap(~ CounterID, scales = "free_y") +
+  labs(
+    title = "CombinedCount: flagged vs. unflagged days",
+    x = "Flagged as mismatch", y = "CombinedCount"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+ 
+# Formal check: Wilcoxon rank-sum test per counter, since CombinedCount is
+# typically right-skewed (matches the non-parametric approach you're
+# already using elsewhere, e.g. Kruskal-Wallis / Dunn's)
+flagged_vs_unflagged %>%
+  group_by(CounterID) %>%
+  summarise(
+    n_flagged = sum(is_mismatch, na.rm = TRUE),
+    n_unflagged = sum(!is_mismatch, na.rm = TRUE),
+    wilcox_p = tryCatch(
+      wilcox.test(CombinedCount ~ is_mismatch)$p.value,
+      error = function(e) NA_real_
+    ),
+    .groups = "drop"
+  ) %>%
+  print()
+
+# ---------------------------------------------------------------------------
+# PART 4: Binomial-test-based flagging (replaces ratio + volume floor)
+# ---------------------------------------------------------------------------
+# Instead of a fixed ratio threshold plus an arbitrary volume floor, test
+# each day directly: is the observed in/out split significantly different
+# from the counter's expected split, given how many total crossings there
+# were that day? This absorbs the floor's job (protect low-count days from
+# noise) into the math automatically, since the confidence interval on a
+# proportion is wide when n is small and narrow when n is large. The only
+# real choice left is the significance level (alpha), which is a more
+# standard and defensible knob than a chosen ratio value.
+#
+# IMPORTANT: this assumes an expected split per counter. Don't assume 50/50
+# blindly, since a counter on a loop trail or near a lot with directional
+# flow bias may have a genuinely uneven normal split. Estimate it from the
+# bulk of the data (e.g. median split, excluding known-bad periods) rather
+# than assuming symmetry.
+ 
+# Step 1: estimate each counter's expected split from its own historical
+# data. Uses the median daily proportion as a robust estimate of "normal,"
+# since a straight overall mean could be pulled by the very malfunctioning
+# days you're trying to detect.
+expected_splits <- df_processed %>%
+  filter(!CounterID == "Tidepool Lot 2", CombinedCount > 0) %>%
+  group_by(CounterID) %>%
+  summarise(
+    expected_prop_in = median(PedestriansIn / CombinedCount, na.rm = TRUE),
+    .groups = "drop"
+  )
+ 
+print(expected_splits)
+# Check these before proceeding: a value near 0.5 suggests a balanced
+# in/out trail; anything notably off 0.5 means that counter has a genuine
+# directional bias and the binomial test below correctly accounts for it,
+# whereas the old ratio+floor rule would not have.
+ 
+# Step 2: run a per-day binomial test against each counter's own expected
+# split. This is row-wise, so it can be slow on very large datasets -
+# consider using purrr::pmap or vectorizing with binom.confint from the
+# `binom` package if this becomes a bottleneck.
+binom_flagged <- df_processed %>%
+  filter(!CounterID == "Tidepool Lot 2") %>%
+  left_join(expected_splits, by = "CounterID") %>%
+  rowwise() %>%
+  mutate(
+    binom_p = if_else(
+      CombinedCount > 0,
+      tryCatch(
+        binom.test(PedestriansIn, CombinedCount, p = expected_prop_in)$p.value,
+        error = function(e) NA_real_
+      ),
+      NA_real_
+    )
+  ) %>%
+  ungroup() %>%
+  mutate(
+    # PRACTICAL significance, alongside statistical significance: at large
+    # CombinedCount, even a trivial 52/48 deviation from the expected split
+    # will hit p < 0.01, because binomial test power scales with n. That's
+    # correct math but not a useful malfunction flag. Cohen's h is a
+    # scale-free effect size for comparing two proportions (does not
+    # inflate with n the way the p-value does), letting us require the
+    # deviation to actually be LARGE, not just statistically detectable.
+    observed_prop_in = PedestriansIn / CombinedCount,
+    cohens_h = 2 * asin(sqrt(observed_prop_in)) - 2 * asin(sqrt(expected_prop_in)),
+    # min_effect: tune this. 0.5 is a conventional "medium" effect size
+    # threshold for Cohen's h; raise it (e.g. 0.8, "large") to be stricter
+    # about what counts as a real malfunction rather than routine variation.
+    is_mismatch_binom = !is.na(binom_p) & binom_p < 0.01 & abs(cohens_h) > 0.5,
+    PedestriansIn_clean_binom = if_else(is_mismatch_binom, NA_real_, PedestriansIn),
+    PedestriansOut_clean_binom = if_else(is_mismatch_binom, NA_real_, PedestriansOut)
+  )
+ 
+# Step 3: compare the binomial rule against your original ratio + floor rule
+comparison_rules <- binom_flagged %>%
+  mutate(
+    imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1),
+    is_mismatch_ratio = imbalance_ratio > 0.95 & CombinedCount > 50
+  ) %>%
+  group_by(CounterID) %>%
+  summarise(
+    n_days = n(),
+    n_flagged_ratio = sum(is_mismatch_ratio, na.rm = TRUE),
+    n_flagged_binom = sum(is_mismatch_binom, na.rm = TRUE),
+    n_flagged_both = sum(is_mismatch_ratio & is_mismatch_binom, na.rm = TRUE),
+    n_flagged_ratio_only = sum(is_mismatch_ratio & !is_mismatch_binom, na.rm = TRUE),
+    n_flagged_binom_only = sum(!is_mismatch_ratio & is_mismatch_binom, na.rm = TRUE),
+    .groups = "drop"
+  )
+ 
+print(comparison_rules)
+# n_flagged_ratio_only: days the old rule caught that the binomial test
+# says are NOT statistically anomalous, given their volume - candidates for
+# false positives under the old rule (likely low-volume noisy days).
+# n_flagged_binom_only: days the binomial test catches that the old rule
+# missed - candidates for false negatives under the old rule (e.g. a
+# high-volume day with a moderate but statistically significant deviation
+# that never crossed the 0.95 ratio line).
+ 
+# Visual: which days each rule disagrees on, plotted by volume and ratio,
+# to see whether disagreement clusters at low volume (as expected if the
+# binomial test is correctly rescuing low-count days from the old floor)
+comparison_rules_detail <- binom_flagged %>%
+  mutate(
+    imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1),
+    is_mismatch_ratio = imbalance_ratio > 0.95 & CombinedCount > 50,
+    agreement = case_when(
+      is_mismatch_ratio & is_mismatch_binom ~ "Both flag",
+      is_mismatch_ratio & !is_mismatch_binom ~ "Ratio only",
+      !is_mismatch_ratio & is_mismatch_binom ~ "Binomial only",
+      TRUE ~ "Neither"
+    )
+  )
+ 
+ggplot(
+  comparison_rules_detail %>% filter(agreement != "Neither"),
+  aes(x = CombinedCount, y = imbalance_ratio, color = agreement)
+) +
+  geom_point(alpha = 0.5) +
+  facet_wrap(~ CounterID, scales = "free_x") +
+  labs(
+    title = "Where the ratio+floor rule and binomial test disagree",
+    subtitle = "Points where only one rule flags the day",
+    x = "CombinedCount", y = "imbalance_ratio", color = "Flagged by"
+  ) +
+  theme_minimal()
+ 
+ ---------------------------------------------------------------------------
+# PART 5: Median/MAD-based robust cutoff on imbalance_ratio, per counter
+# ---------------------------------------------------------------------------
+# Mean +/- 2 SD is not appropriate here for two reasons:
+#  1. imbalance_ratio is bounded in [0.5, 1] and typically right-skewed
+#     (most days balanced, thin tail toward 1.0), not normal, so mean +/- 2SD
+#     can land above 1.0 (meaningless) or miss real anomalies.
+#  2. SD itself is not robust: the malfunctioning days you're trying to
+#     detect are exactly the days that inflate the SD, which then pushes
+#     the "2 SD" cutoff further out and makes those same days harder to
+#     catch (masking). Median and MAD are robust to this because the
+#     median isn't dragged around by extreme values.
+#
+# This computes both versions per counter so you can see how much they
+# disagree; a big gap between them is itself informative about how skewed
+# a given counter's distribution is.
+ 
+robust_cutoffs <- df_processed %>%
+  filter(!CounterID == "Tidepool Lot 2") %>%
+  group_by(CounterID) %>%
+  summarise(n_zero_volume_days = sum(CombinedCount == 0, na.rm = TRUE), .groups = "drop")
+ 
+robust_cutoffs <- df_processed %>%
+  filter(!CounterID == "Tidepool Lot 2", CombinedCount > 0) %>%
+  # CombinedCount > 0 excludes zero-traffic days, not as an arbitrary floor
+  # but because imbalance_ratio is undefined/uninformative with no crossings
+  # at all (0/1 = 0 by construction). Leaving those in collapses the median
+  # and MAD toward zero, which produces a meaningless near-zero cutoff.
+  mutate(imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1)) %>%
+  group_by(CounterID) %>%
+  summarise(
+    mean_ratio = mean(imbalance_ratio, na.rm = TRUE),
+    sd_ratio = sd(imbalance_ratio, na.rm = TRUE),
+    median_ratio = median(imbalance_ratio, na.rm = TRUE),
+    mad_ratio = mad(imbalance_ratio, na.rm = TRUE),  # constant = 1.4826 by default, consistent with SD for normal data
+    .groups = "drop"
+  ) %>%
+  left_join(robust_cutoffs, by = "CounterID") %>%
+  mutate(
+    cutoff_sd = mean_ratio + 2 * sd_ratio,
+    cutoff_mad = median_ratio + 2 * mad_ratio,
+    # Flag if either cutoff exceeds the ratio's natural ceiling of 1.0 -
+    # a sign that mean+/-2SD isn't a meaningful cutoff for that counter
+    cutoff_sd_invalid = cutoff_sd >= 1
+  )
+ 
+print(robust_cutoffs)
+# Check n_zero_volume_days per counter - if it's a large share of total
+# days for any counter, that's worth understanding on its own (seasonal
+# closure? known outage period? genuinely near-zero off season traffic?)
+# separately from the malfunction-detection question.
+ 
+# Apply both cutoffs per counter and flag days
+robust_flagged <- df_processed %>%
+  filter(!CounterID == "Tidepool Lot 2") %>%
+  mutate(imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1)) %>%
+  left_join(robust_cutoffs %>% select(CounterID, cutoff_sd, cutoff_mad), by = "CounterID") %>%
+  mutate(
+    is_mismatch_sd = imbalance_ratio > cutoff_sd,
+    is_mismatch_mad = imbalance_ratio > cutoff_mad
+  )
+ 
+# Modified z-score for reference/plotting (0.6745 rescales MAD to be
+# comparable to SD under normality, the standard convention)
+robust_flagged <- robust_flagged %>%
+  left_join(robust_cutoffs %>% select(CounterID, median_ratio, mad_ratio), by = "CounterID") %>%
+  mutate(modified_z = 0.6745 * (imbalance_ratio - median_ratio) / mad_ratio)
+ 
+ggplot(robust_flagged, aes(x = imbalance_ratio)) +
+  geom_histogram(binwidth = 0.02, boundary = 0, fill = "steelblue", color = "white") +
+  geom_vline(aes(xintercept = cutoff_sd), linetype = "dashed", color = "orange") +
+  geom_vline(aes(xintercept = cutoff_mad), linetype = "dashed", color = "firebrick") +
+  facet_wrap(~ CounterID, scales = "free_y") +
+  labs(
+    title = "Mean+2SD (orange) vs. Median+2MAD (red) cutoffs, per counter",
+    subtitle = "Where these diverge a lot, the SD-based cutoff is likely distorted by the outliers it's trying to catch",
+    x = "imbalance_ratio", y = "Count of days"
+  ) +
+  theme_minimal()
+ 
+# --- Three-way comparison: ratio+floor vs. binomial+effect-size vs. median/MAD ---
+three_way_comparison <- binom_flagged %>%
+  mutate(imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1)) %>%
+  left_join(robust_cutoffs %>% select(CounterID, cutoff_mad), by = "CounterID") %>%
+  mutate(
+    is_mismatch_ratio = imbalance_ratio > 0.95 & CombinedCount > 50,
+    is_mismatch_mad = imbalance_ratio > cutoff_mad
+  ) %>%
+  group_by(CounterID) %>%
+  summarise(
+    n_days = n(),
+    n_flagged_ratio = sum(is_mismatch_ratio, na.rm = TRUE),
+    n_flagged_binom = sum(is_mismatch_binom, na.rm = TRUE),
+    n_flagged_mad = sum(is_mismatch_mad, na.rm = TRUE),
+    n_flagged_all_three = sum(is_mismatch_ratio & is_mismatch_binom & is_mismatch_mad, na.rm = TRUE),
+    .groups = "drop"
+  )
+ 
+print(three_way_comparison)
+# n_flagged_all_three, relative to each individual count, is a reasonable
+# "high-confidence" core set: days flagged as malfunctioning under three
+# methodologically different approaches (an arbitrary-but-stated rule, a
+# significance test with an effect-size floor, and a robust distributional
+# cutoff). Days flagged by only one method are the ones worth the closest
+# manual review before deciding whether to exclude them.
+```
+
 ```{r}
 # =============================================================================
 # Cleaning data looking at how to deal with outliers
+# Date Range (07-01-2025 to 06-30-2026) CHANGE FOR ANALYSIS
 # =============================================================================
 
 trail_data <- df_processed %>%
   mutate(
     # Ratio of the larger direction to the total - if one direction dominates, ratio approaches 1
     imbalance_ratio = pmax(PedestriansIn, PedestriansOut) / pmax(CombinedCount, 1),  # avoid div/0
-    is_mismatch = imbalance_ratio > 0.95 & CombinedCount > 50,  # tune threshold + minimum volume
+    # If imbalance ratio is over 0.9, and combined count is more than 50, it will exclude data
+    #we chose this combination of ratio and count from diagnostic analysis above
+    is_mismatch = imbalance_ratio > 0.9 & CombinedCount > 50,  # tune threshold + minimum volume
     PedestriansIn_clean = if_else(is_mismatch, NA_real_, PedestriansIn),
     PedestriansOut_clean = if_else(is_mismatch, NA_real_, PedestriansOut)
   )%>%
-  filter(!CounterID == 'Tidepool Lot 2')
+  filter(!CounterID == 'Tidepool Lot 2')%>%
+    filter(Date >= as.Date("2025-07-01") & Date <= as.Date("2026-06-30"))
+
+shutdown_start <- as.Date("2025-10-01")
+shutdown_end   <- as.Date("2025-11-12")
+
+trail_data <- trail_data %>%
+  mutate(is_shutdown = Date >= shutdown_start & Date <= shutdown_end)
+
+# Analysis dataset: no mismatch days, no shutdown days
+trail_open <- trail_data %>%
+  filter(!is_mismatch, !is_shutdown)
   
-
-```
-
-```{r}
-
-# =============================================================================
-# Date Range (07-01-2025 to 06-30-2026) CHANGE FOR ANALYSIS
-# =============================================================================
-trail_data<- trail_data%>%
-  filter(Date >= as.Date("2025-07-01") & Date <= as.Date("2026-06-30"))
 ```
 
 ```{r}
@@ -161,8 +692,7 @@ ggsave(filename = './figures/monthly_summary_plot.png',
 # =============================================================================
 
 
-ridgeline_data1 <- trail_data %>%
-  filter(is_mismatch == FALSE) %>%
+ridgeline_data1 <- trail_open %>%
   filter(CounterID %in% c("Tidepool Lot 1", "Lighthouse")) %>%
   mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun"))) %>%
   group_by(CounterID, Weekday, Hour) %>%
@@ -192,8 +722,7 @@ ggsave(filename = './figures/ridgelineplot1.png',
 # Ridgeline plot activity levels during hours of day on each trail (Bayside and Oceanside Trail)
 # =============================================================================
 
-ridgeline_data2 <- trail_data %>%
-  filter(is_mismatch == FALSE) %>%
+ridgeline_data2 <- trail_open %>%
   filter(CounterID  == c("Bayside Trail", "Oceanside Trail 1"))%>%
   mutate(Weekday = factor(Weekday, levels = c("Mon","Tue","Wed","Thu","Fri","Sat","Sun")))%>%
   group_by(CounterID, Weekday, Hour) %>%
@@ -225,8 +754,7 @@ ggsave(filename = './figures/ridgelineplot2.png',
 # =============================================================================
 
 # Summarize by day of week per counter
-dayofweek_summary <- trail_data %>%
-  filter(is_mismatch == FALSE) %>%
+dayofweek_summary <- trail_open %>%
   group_by(CounterID, Date, DayOfWeek) %>%
   summarise(DailyVisitors = sum(PedestrianCount, na.rm = TRUE), .groups = "drop") %>%
   mutate(DayOfWeek = factor(DayOfWeek, 
@@ -254,6 +782,139 @@ ggsave(filename = './figures/boxplot.png',
        width = 6, height = 5,
        dpi = 600)
 ```
+
+```{r}
+# Drop zero-count days (October closure and hardware outages). log(0) is
+# undefined, and these days reflect missing data, not an absence of visitors
+anova_data <- dayofweek_summary %>%
+  filter(DailyVisitors > 0)
+
+# Fit one model per counter. Keep log() inside the formula (not a pre-made
+# log column) so emmeans knows the response was logged and can back-transform
+dow_models <- anova_data %>%
+  group_by(CounterID) %>%
+  nest() %>%
+  mutate(
+    model = map(data, ~ lm(log(DailyVisitors) ~ DayOfWeek, data = .x)),
+    emm   = map(model, ~ emmeans(.x, ~ DayOfWeek))
+  )
+
+# --- ANOVA tables ---
+anova_results <- dow_models %>%
+  mutate(anova_tbl = map(model, ~ tidy(anova(.x)))) %>%
+  dplyr::select(CounterID, anova_tbl) %>%
+  unnest(anova_tbl)
+
+# --- Tukey HSD pairwise comparisons ---
+# type = "response" back-transforms, so each contrast is a RATIO of
+# geometric mean daily counts (e.g., Saturday / Monday = 2.1)
+tukey_results <- dow_models %>%
+  mutate(pairs_tbl = map(emm, ~ as.data.frame(
+    summary(pairs(.x, adjust = "tukey"), type = "response")))) %>%
+  dplyr::select(CounterID, pairs_tbl) %>%
+  unnest(pairs_tbl)
+print(tukey_results, n = Inf)
+
+# --- Compact letter display: days sharing a letter do not differ ---
+# This is the quickest way to see where Friday groups
+cld_results <- dow_models %>%
+  mutate(letters_tbl = map(emm, function(e) {
+    p <- as.data.frame(pairs(e, adjust = "tukey"))
+    pvals <- setNames(p$p.value, gsub(" - ", "-", p$contrast))
+    lets <- multcompLetters(pvals)$Letters
+    tibble(DayOfWeek = names(lets), group = unname(lets))
+  })) %>%
+  dplyr::select(CounterID, letters_tbl) %>%
+  unnest(letters_tbl)
+print(cld_results, n = Inf)
+
+library(knitr)
+install.packages("kableExtra")
+library(kableExtra)
+
+
+tukey_results %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  kable(caption = "Tukey HSD pairwise comparisons by counter") %>%
+  kable_styling(full_width = FALSE)
+
+cld_results %>%
+  kable(caption = "Compact letter display by counter") %>%
+  kable_styling(full_width = FALSE)
+
+
+# --- Weekend vs weekday ratio with 95% CI (Mon-Fri vs Sat-Sun) ---
+# Coefficients follow factor level order: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+# Change to c(rep(-1/4, 4), 0, 1/2, 1/2) to treat Friday as neither
+weekend_ratio <- dow_models %>%
+  mutate(ratio_tbl = map(emm, ~ as.data.frame(confint(
+    contrast(.x, list("Weekend / Weekday" = c(rep(-1/5, 5), 1/2, 1/2))),
+    type = "response")))) %>%
+  select(CounterID, ratio_tbl) %>%
+  unnest(ratio_tbl)
+print(weekend_ratio)
+
+weekend_ratio %>%
+  kable(caption = "weekend vs weekday ration with confidence interval") %>%
+          kable_styling(full_width = FALSE)
+
+# =============================================================================
+# Residual diagnostics
+# =============================================================================
+# augment() with data = .y keeps Date and DayOfWeek alongside the residuals
+resid_data <- dow_models %>%
+  mutate(aug = map2(model, data, ~ augment(.x, data = .y))) %>%
+  select(CounterID, aug) %>%
+  unnest(aug)
+
+# 1. Residuals vs fitted: look for an even band with no fanning
+resid_vs_fitted <- ggplot(resid_data, aes(x = .fitted, y = .std.resid)) +
+  geom_jitter(width = 0.03, alpha = 0.4, size = 0.8) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "firebrick") +
+  facet_wrap(~ CounterID, nrow = 1, scales = "free_x") +
+  labs(x = "Fitted values (log scale)", y = "Standardized residuals",
+       title = "Residuals vs. fitted values") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# 2. Normal Q-Q plot: points should follow the line
+resid_qq <- ggplot(resid_data, aes(sample = .std.resid)) +
+  stat_qq(alpha = 0.4, size = 0.8) +
+  stat_qq_line(color = "firebrick") +
+  facet_wrap(~ CounterID, nrow = 1) +
+  labs(x = "Theoretical quantiles", y = "Standardized residuals",
+       title = "Normal Q-Q plot of residuals") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+# 3. Residual spread by day of week: checks equal variance across days
+resid_by_day <- ggplot(resid_data, aes(x = DayOfWeek, y = .std.resid)) +
+  geom_boxplot(outlier.alpha = 0.3, linewidth = 0.2) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "firebrick") +
+  facet_wrap(~ CounterID, nrow = 1) +
+  labs(x = "Day of week", y = "Standardized residuals",
+       title = "Residual spread by day of week") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6),
+        panel.grid = element_blank())
+
+resid_vs_fitted
+resid_qq
+resid_by_day
+
+ggsave("./figures/resid_vs_fitted.png", resid_vs_fitted, width = 9, height = 3, dpi = 600)
+ggsave("./figures/resid_qq.png", resid_qq, width = 9, height = 3, dpi = 600)
+ggsave("./figures/resid_by_day.png", resid_by_day, width = 9, height = 3.5, dpi = 600)
+
+# Days with large residuals, worth checking against outage records
+resid_data %>%
+  filter(abs(.std.resid) > 3) %>%
+  select(CounterID, Date, DayOfWeek, DailyVisitors, .std.resid) %>%
+  arrange(CounterID, .std.resid) %>%
+  print(n = Inf)
+```
+
+
 
 ```{r}
 # =============================================================================
@@ -547,4 +1208,27 @@ walk2(calendar_plots, names(calendar_plots), function(plot, name) {
 
 ```
 
+```{r}
+# Monthly table
+
+Monthly_total<- trail_data%>%
+  group_by(CounterID, Month)%>%
+  summarize(total_count= round(sum(PedestrianCount, na.rm = TRUE))
+  )
+Annual_total<- trail_data%>%
+  group_by(CounterID)%>%
+  summarize(total_count= round(sum(PedestrianCount, na.rm = TRUE))
+  )
+
+png("./figures/monthly_total.png", width = 800, height = 2100, res = 150)
+grid.table(Monthly_total, rows = NULL)
+dev.off()
+
+
+png("./figures/annual_total.png", width = 600, height = 400, res = 150)
+grid.table(Annual_total, rows = NULL)
+dev.off()
+
+
+```
 
